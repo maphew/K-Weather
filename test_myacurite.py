@@ -73,7 +73,7 @@ def synthetic_dashboard():
                 "wired_sensors": [],
             },
             {
-                "name": "Greenhouse sensor",
+                "name": "Greenhouse sensor Greenhouse sensor",
                 "model_code": "2in1T",
                 "last_check_in_at": "2026-08-13T06:14:00-07:00",
                 "sensors": [

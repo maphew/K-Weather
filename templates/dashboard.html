@@ -40,10 +40,13 @@
           </div>
           <div class="station-grid">
             {% for station in current_conditions %}
-              <article class="station-card station-card--{{ station.key }}">
+              <article class="station-card station-card--{{ station.key }}{% if station.stale %} station-card--stale{% endif %}">
                 <header>
                   <h3>{{ station.name }}</h3>
-                  <span>{{ station.updated_at }}</span>
+                  <div class="station-status">
+                    {% if station.stale %}<strong>Data may be stale</strong>{% endif %}
+                    <span>{{ station.updated_at }}</span>
+                  </div>
                 </header>
                 <dl class="reading-grid">
                   {% for reading in station.readings %}

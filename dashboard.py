@@ -103,6 +103,7 @@ class CurrentStation:
     key: str
     name: str
     updated_at: str
+    stale: bool
     readings: tuple[CurrentReading, ...]
 
 
@@ -171,6 +172,15 @@ def local_observation_time(value: str) -> str:
     )
 
 
+def observation_is_stale(value: str) -> bool:
+    parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    return datetime.now(timezone.utc) - parsed.astimezone(timezone.utc) > timedelta(
+        hours=12
+    )
+
+
 def load_current_conditions(
     connection: sqlite3.Connection,
 ) -> tuple[CurrentStation, ...]:
@@ -205,6 +215,7 @@ def load_current_conditions(
             key=station_key,
             name=name,
             updated_at=local_observation_time(observed_at),
+            stale=observation_is_stale(observed_at),
             readings=tuple(
                 sorted(
                     readings,

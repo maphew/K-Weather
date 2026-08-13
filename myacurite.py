@@ -63,6 +63,19 @@ def metric_key(sensor_name: str) -> str:
     return key
 
 
+def station_name(value: Any, fallback: str) -> str:
+    if not isinstance(value, str) or not value.strip():
+        return fallback
+    name = " ".join(value.split())
+    words = name.split()
+    midpoint = len(words) // 2
+    if len(words) % 2 == 0 and [word.casefold() for word in words[:midpoint]] == [
+        word.casefold() for word in words[midpoint:]
+    ]:
+        return " ".join(words[:midpoint])
+    return name
+
+
 def display_unit(unit: Any) -> str:
     text = "" if unit is None else str(unit).strip()
     return f"°{text}" if text in {"C", "F"} else text
@@ -140,10 +153,7 @@ def parse_snapshots(payload: Any) -> tuple[MyAcuriteSnapshot, ...]:
             auxiliary_index += 1
             station_key = f"sensor_{auxiliary_index}"
             fallback_name = f"Household sensor {auxiliary_index}"
-        name = device.get("name")
-        station_name = (
-            name.strip() if isinstance(name, str) and name.strip() else fallback_name
-        )
+        display_name = station_name(device.get("name"), fallback_name)
         try:
             observed_at = normalize_timestamp(
                 device["last_check_in_at"], device.get("timezone") or timezone_name
@@ -155,7 +165,7 @@ def parse_snapshots(payload: Any) -> tuple[MyAcuriteSnapshot, ...]:
         snapshots.append(
             MyAcuriteSnapshot(
                 station_key=station_key,
-                station_name=station_name,
+                station_name=display_name,
                 observed_at=observed_at,
                 readings=parse_readings(device),
             )

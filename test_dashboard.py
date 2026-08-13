@@ -189,6 +189,7 @@ class DashboardTest(unittest.TestCase):
         self.assertIn(b"0.25 mm", response.data)
         self.assertIn(b"44 %", response.data)
         self.assertIn(b"Aug 13, 9:45 AM", response.data)
+        self.assertNotIn(b"Data may be stale", response.data)
 
     def test_dashboard_requires_authentication(self) -> None:
         response = self.client().get("/")
