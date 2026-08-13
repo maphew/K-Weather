@@ -101,6 +101,17 @@ class MyAcuriteCsvTest(unittest.TestCase):
         self.assertEqual(sampled[0], points[0])
         self.assertEqual(sampled[-1], points[-1])
 
+    def test_chart_daily_averages_subdaily_points(self):
+        points = [
+            ("2026-08-01T10:00:00+00:00", 10),
+            ("2026-08-01T11:00:00+00:00", 14),
+            ("2026-08-02T10:00:00+00:00", 20),
+        ]
+
+        sampled = chart_points(points, daily=True)
+
+        self.assertEqual(sampled, [("2026-08-01", 12), ("2026-08-02", 20)])
+
 
 if __name__ == "__main__":
     unittest.main()

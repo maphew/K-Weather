@@ -311,9 +311,17 @@ def timestamp(value: str) -> float:
 
 
 def chart_points(
-    points: list[tuple[str, float]], limit: int = 500
+    points: list[tuple[str, float]], *, daily: bool = False, limit: int = 500
 ) -> list[tuple[str, float]]:
     """Bound SVG size while retaining the first and last observations."""
+    if daily:
+        by_date: dict[str, list[float]] = defaultdict(list)
+        for observed_at, value in points:
+            by_date[observed_at[:10]].append(value)
+        points = [
+            (observed_at, sum(values) / len(values))
+            for observed_at, values in by_date.items()
+        ]
     if len(points) <= limit:
         return points
     return [
@@ -404,7 +412,9 @@ def load_charts(
         )
         for index, (station_label, points) in enumerate(station_values.items()):
             coordinates = []
-            for observed_at, value in chart_points(points):
+            for observed_at, value in chart_points(
+                points, daily=x_span >= 60 * 24 * 60 * 60
+            ):
                 x = 52 + 926 * ((timestamp(observed_at) - start_timestamp) / x_span)
                 y = 18 + 204 * ((maximum - value) / y_span)
                 coordinates.append(f"{x:.1f},{y:.1f}")
