@@ -22,10 +22,17 @@ Data gathering must run every six hours.
   see `ADR/` for rationale.
 - Established a public-code/private-operations boundary: account-linked IDs,
   credentials, raw household data, and street-level location stay out of Git.
+- Added normalized SQLite stations, observations, and ingestion-run tables.
+  ECCC imports upsert on source/station/date/interval/metric, preserve quality
+  flags, skip missing measurements, and record completed or failed runs.
+- Integrated SQLite persistence into the historical downloader while retaining
+  private CSV output for local inspection.
+- Added four focused tests for duplicate refreshes, blank placeholder days,
+  failed ingestion metadata, and Riverdale-to-airport fallback.
 
 Generated CSV files under `yukon_weather/` are local verification output and
-are intentionally ignored by Git. There is no dashboard, database, scheduler,
-or deployment configuration yet.
+are intentionally ignored by Git. The private SQLite database is ignored too.
+There is no dashboard, scheduler, or deployment configuration yet.
 
 The sanitized history is published in the public `maphew/K-Weather` GitHub
 repository. The imported private handoff history was intentionally excluded.
@@ -33,17 +40,24 @@ repository. The imported private handoff history was intentionally excluded.
 
 ## Next job
 
-Build the normalized SQLite ingestion layer:
+Build the read-only dashboard against SQLite:
 
-1. Define stations, observations, and ingestion-run metadata.
-2. Make ECCC refreshes idempotent using a unique source/station/timestamp/metric
-   identity (or an equivalently safe normalized key).
-3. Import the existing daily ECCC response into SQLite without storing blank
-   placeholder days.
-4. Add focused tests for duplicate refreshes, station fallback, and missing
-   observations.
+1. Show a useful default overview for Riverdale, Whitehorse.
+2. Add date-range, station/source, and metric filters.
+3. Query normalized observations without exposing official coordinates or any
+   private household identifiers.
+4. Test empty, single-series, and multiple-metric states.
 
-Do not start the dashboard until this persistence contract is tested.
+Authentication and the protected six-hour refresh endpoint follow after the
+read-only dashboard works locally.
+
+## Verification
+
+- `python -m unittest -v`: 4 tests passed.
+- Live ECCC import: 2,401 daily rows became 14,066 normalized observations
+  spanning 2020-01-01 through 2026-08-11.
+- Reimporting all 2,401 rows left the observation count at 14,066, confirming
+  idempotency on real data.
 
 ## Time-sensitive manual action
 

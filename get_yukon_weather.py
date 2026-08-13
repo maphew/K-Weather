@@ -11,9 +11,10 @@ Usage:
     # or, if you don't have uv:
     pip install requests pandas && python get_yukon_weather.py
 
-Output: ./yukon_weather/<station>_daily_<start>-<end>.csv per station,
-and a merged ./yukon_weather/whitehorse_merged_daily.csv preferring Riverdale,
-filling gaps from the airport AUTO station.
+Output: normalized observations in ./yukon_weather/k-weather.sqlite3,
+./yukon_weather/<station>_daily_<start>-<end>.csv per station, and a merged
+./yukon_weather/whitehorse_merged_daily.csv preferring Riverdale and filling
+gaps from the current airport station.
 
 The ECCC bulk endpoint:
     https://climate.weather.gc.ca/climate_data/bulk_data_e.html
@@ -32,6 +33,8 @@ from pathlib import Path
 import pandas as pd
 import requests
 
+from weather_store import connect_database, ingest_eccc_daily
+
 BASE_URL = "https://climate.weather.gc.ca/climate_data/bulk_data_e.html"
 
 # Station IDs are ECCC's internal numeric IDs (not the 7-digit Climate ID).
@@ -47,6 +50,7 @@ START_YEAR = 2020
 END_YEAR = date.today().year  # inclusive; partial OK for current year
 
 OUTDIR = Path("yukon_weather")
+DATABASE = OUTDIR / "k-weather.sqlite3"
 SLEEP_SEC = 1.0  # be polite to a public gov endpoint
 
 OBSERVATION_COLUMNS = (
@@ -131,15 +135,29 @@ def merge_preferring_riverdale(per_station: dict[str, pd.DataFrame]) -> pd.DataF
 
 def main() -> int:
     OUTDIR.mkdir(exist_ok=True)
+    database = connect_database(DATABASE)
     per_station: dict[str, pd.DataFrame] = {}
-    for name, sid in STATIONS.items():
-        df = pull_station(name, sid)
-        per_station[name] = df
-        if df.empty:
-            continue
-        path = OUTDIR / f"{name}_daily_{START_YEAR}-{END_YEAR}.csv"
-        df.to_csv(path, index=False)
-        print(f"  wrote {path}  ({len(df)} rows)", flush=True)
+    try:
+        for name, sid in STATIONS.items():
+            df = pull_station(name, sid)
+            per_station[name] = df
+            result = ingest_eccc_daily(
+                database,
+                station_key=name,
+                station_id=sid,
+                rows=df.to_dict(orient="records"),
+            )
+            print(
+                f"  stored {result.observations_written} observations in {DATABASE}",
+                flush=True,
+            )
+            if df.empty:
+                continue
+            path = OUTDIR / f"{name}_daily_{START_YEAR}-{END_YEAR}.csv"
+            df.to_csv(path, index=False)
+            print(f"  wrote {path}  ({len(df)} rows)", flush=True)
+    finally:
+        database.close()
 
     merged = merge_preferring_riverdale(per_station)
     if not merged.empty:

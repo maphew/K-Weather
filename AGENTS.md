@@ -27,7 +27,12 @@ Two findings that shaped this:
 - Live endpoint verification on 2026-08-13 confirmed that station 50842 has
   current observations. Stations 1618 and 1617 respond but currently contain
   blank calendar rows; the script now discards those placeholders.
-- No dashboard, database, scheduler, or deployment configuration exists yet.
+- `weather_store.py` owns the normalized SQLite schema and idempotent ECCC
+  ingestion. The downloader writes private runtime data to
+  `yukon_weather/k-weather.sqlite3`.
+- `test_weather_store.py` covers duplicate refreshes, blank observations,
+  failed-run metadata, and station fallback.
+- No dashboard, scheduler, or deployment configuration exists yet.
 
 ## Stations
 
