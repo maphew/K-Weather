@@ -109,7 +109,8 @@ input[type="date"] { display: block; width: 100%; margin-top: .35rem; padding: .
 .range-controls label { display: grid; grid-template-columns: 8rem minmax(0, 1fr); align-items: center; gap: .7rem; color: var(--muted); font-size: .72rem; }
 .range-controls label span { display: grid; }
 .range-controls output { color: var(--ink); font-variant-numeric: tabular-nums; }
-input[type="range"] { min-width: 0; width: 100%; accent-color: var(--pine); cursor: pointer; }
+input[type="range"] { min-width: 0; width: 100%; margin: 0; padding: .35rem .55rem; accent-color: var(--pine); cursor: pointer; }
+input[type="range"]:focus-visible { outline: 3px solid rgba(229, 169, 79, .55); outline-offset: 1px; border-radius: 999px; }
 fieldset { margin: 0; padding: 0; border: 0; }
 legend { margin-bottom: .55rem; }
 .choice-grid { display: flex; flex-wrap: wrap; gap: .45rem; }
