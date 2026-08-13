@@ -9,8 +9,9 @@ from __future__ import annotations
 import os
 import re
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from typing import Any
+from urllib.parse import urlparse, urlunparse
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 import requests
@@ -42,6 +43,30 @@ class MyAcuriteSnapshot:
     station_name: str
     observed_at: str
     readings: tuple[SensorReading, ...]
+
+
+@dataclass(frozen=True)
+class MyAcuriteHistoryRow:
+    station_key: str
+    station_name: str
+    observed_at: str
+    readings: tuple[SensorReading, ...]
+
+
+RAW_UNITS = {
+    "C": ("C", "°C"),
+    "F": ("F", "°F"),
+    "%": ("RH", "%"),
+    "%RH": ("RH", "%RH"),
+    "km/h": ("KPH", "km/h"),
+    "mph": ("MPH", "mph"),
+    "hPa": ("HPA", "hPa"),
+    "inHg": ("INHG", "inHg"),
+    "mm": ("MM", "mm"),
+    "in": ("IN", "in"),
+    "mi": ("MI", "mi"),
+    "": ("", ""),
+}
 
 
 def load_myacurite_config() -> MyAcuriteConfig | None:
@@ -173,6 +198,91 @@ def parse_snapshots(payload: Any) -> tuple[MyAcuriteSnapshot, ...]:
     return tuple(snapshots)
 
 
+def parse_history_rows(
+    device: Any,
+    payload: Any,
+    *,
+    station_key: str,
+    station_display_name: str,
+) -> tuple[MyAcuriteHistoryRow, ...]:
+    """Normalize one private five-minute summary without retaining identifiers."""
+    try:
+        sensors = tuple(device.get("sensors") or ()) + tuple(
+            device.get("wired_sensors") or ()
+        )
+        channels = {}
+        for sensor in sensors:
+            channel = str(sensor["channel"])
+            chart_unit = (
+                "" if sensor.get("chart_unit") is None else str(sensor["chart_unit"])
+            )
+            raw_unit, unit = RAW_UNITS[chart_unit]
+            channels[channel] = (metric_key(sensor["sensor_name"]), raw_unit, unit)
+        if not isinstance(payload, dict):
+            raise TypeError
+    except (AttributeError, KeyError, TypeError):
+        raise MyAcuriteError(
+            "MyAcuRite returned an unexpected history response"
+        ) from None
+
+    rows: dict[str, dict[str, SensorReading]] = {}
+    try:
+        for channel, (metric, raw_unit, unit) in channels.items():
+            for item in payload.get(channel, ()):
+                observed_at = normalize_timestamp(item["happened_at"])
+                value = item["raw_values"].get(raw_unit)
+                if value is None or value == "":
+                    continue
+                rows.setdefault(observed_at, {})[metric] = SensorReading(
+                    metric, float(value), unit
+                )
+    except (AttributeError, KeyError, TypeError, ValueError):
+        raise MyAcuriteError("MyAcuRite returned invalid history data") from None
+    return tuple(
+        MyAcuriteHistoryRow(
+            station_key=station_key,
+            station_name=station_display_name,
+            observed_at=observed_at,
+            readings=tuple(readings.values()),
+        )
+        for observed_at, readings in sorted(rows.items())
+        if readings
+    )
+
+
+def five_minute_urls(summary_url: Any, days: int = 3) -> tuple[str, ...]:
+    """Derive recent files while leaving the account-linked path in memory only."""
+    if not isinstance(summary_url, str):
+        raise MyAcuriteError("MyAcuRite returned no history location")
+    parsed = urlparse(summary_url)
+    parts = parsed.path.rsplit("/", 2)
+    try:
+        if (
+            parsed.scheme != "https"
+            or parsed.hostname != "dataapi.myacurite.com"
+            or len(parts) != 3
+            or parts[1] != "1h-summaries"
+            or not parts[2].endswith(".json")
+        ):
+            raise ValueError
+        latest = date.fromisoformat(parts[2].removesuffix(".json"))
+    except (TypeError, ValueError):
+        raise MyAcuriteError("MyAcuRite returned an invalid history location") from None
+    return tuple(
+        urlunparse(
+            parsed._replace(
+                path=(
+                    f"{parts[0]}/5m-summaries/"
+                    f"{(latest - timedelta(days=offset)).isoformat()}.json"
+                ),
+                query="",
+                fragment="",
+            )
+        )
+        for offset in range(days)
+    )
+
+
 class MyAcuriteClient:
     def __init__(
         self,
@@ -185,6 +295,7 @@ class MyAcuriteClient:
         self._token: str | None = None
         self._account_id: str | None = None
         self._hub_id: str | None = None
+        self._dashboard: Any = None
 
     def _login(self) -> None:
         try:
@@ -238,12 +349,53 @@ class MyAcuriteClient:
         except (requests.RequestException, ValueError, KeyError, TypeError):
             raise MyAcuriteError("MyAcuRite hub discovery failed") from None
 
-    def fetch_snapshots(self) -> tuple[MyAcuriteSnapshot, ...]:
+    def _fetch_dashboard(self) -> Any:
+        if self._dashboard is not None:
+            return self._dashboard
         if not self._hub_id:
             self._discover_hub_id()
         response = self._authenticated_get(f"dashboard/hubs/{self._hub_id}")
         try:
             response.raise_for_status()
-            return parse_snapshots(response.json())
+            self._dashboard = response.json()
+            return self._dashboard
         except (requests.RequestException, ValueError):
             raise MyAcuriteError("MyAcuRite dashboard request failed") from None
+
+    def fetch_snapshots(self) -> tuple[MyAcuriteSnapshot, ...]:
+        return parse_snapshots(self._fetch_dashboard())
+
+    def fetch_history(self) -> tuple[MyAcuriteHistoryRow, ...]:
+        payload = self._fetch_dashboard()
+        snapshots = parse_snapshots(payload)
+        rows = []
+        try:
+            devices = payload["devices"]
+            for device, snapshot in zip(devices, snapshots, strict=True):
+                summary_files = device["summary_files"]
+                if not isinstance(summary_files, list) or not summary_files:
+                    raise TypeError
+                for url in five_minute_urls(summary_files[0]):
+                    response = self.session.get(url, timeout=TIMEOUT_SECONDS)
+                    if response.status_code == 404:
+                        continue
+                    response.raise_for_status()
+                    rows.extend(
+                        parse_history_rows(
+                            device,
+                            response.json(),
+                            station_key=snapshot.station_key,
+                            station_display_name=snapshot.station_name,
+                        )
+                    )
+        except MyAcuriteError:
+            raise
+        except (
+            requests.RequestException,
+            ValueError,
+            AttributeError,
+            KeyError,
+            TypeError,
+        ):
+            raise MyAcuriteError("MyAcuRite history request failed") from None
+        return tuple(rows)

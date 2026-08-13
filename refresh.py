@@ -14,6 +14,7 @@ from myacurite import MyAcuriteClient, load_myacurite_config
 from weather_store import (
     IngestionResult,
     ingest_eccc_daily,
+    ingest_myacurite_history,
     ingest_myacurite_snapshot,
     utc_now,
 )
@@ -104,7 +105,8 @@ def refresh_weather(
     if config is None:
         return tuple(results)
     try:
-        snapshots = acurite_client_factory(config).fetch_snapshots()
+        client = acurite_client_factory(config)
+        snapshots = client.fetch_snapshots()
         for snapshot in snapshots:
             results.append(
                 ingest_myacurite_snapshot(
@@ -115,6 +117,9 @@ def refresh_weather(
                     readings=snapshot.readings,
                 )
             )
+        results.append(
+            ingest_myacurite_history(connection, rows=client.fetch_history())
+        )
     except Exception as error:
         with connection:
             connection.execute(

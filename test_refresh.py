@@ -91,6 +91,9 @@ class RefreshTest(unittest.TestCase):
             def fetch_snapshots(self):
                 return (snapshot,)
 
+            def fetch_history(self):
+                return ()
+
         environment = {
             "MYACURITE_EMAIL": "person@example.invalid",
             "MYACURITE_PASSWORD": "synthetic-password",
@@ -107,7 +110,7 @@ class RefreshTest(unittest.TestCase):
             self.database.execute(
                 "SELECT count(*) FROM ingestion_runs WHERE source = 'myacurite'"
             ).fetchone()[0],
-            2,
+            4,
         )
 
 

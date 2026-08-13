@@ -68,6 +68,11 @@ latest AcuRite Iris snapshot. The account ID and precise location returned by
 MyAcuRite are never stored. The household station appears as a neighbourhood-
 scale Riverdale source in the dashboard. See ADR 0006.
 
+Each refresh also fetches the current and prior two days of five-minute cloud
+summaries for every household sensor. The 48-hour overlap repairs late uploads
+and retries idempotently, while account-linked summary paths remain in memory
+only. See ADR 0011.
+
 The current-conditions section shows the latest instrument readings from the
 Iris and every linked auxiliary sensor, including temperature, humidity, dew
 point, pressure, wind, feels-like temperature, and rainfall when available.

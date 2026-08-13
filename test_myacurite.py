@@ -9,6 +9,8 @@ from myacurite import (
     MyAcuriteConfig,
     MyAcuriteError,
     SensorReading,
+    five_minute_urls,
+    parse_history_rows,
     parse_snapshots,
 )
 from weather_store import connect_database, ingest_myacurite_snapshot
@@ -53,18 +55,27 @@ def synthetic_dashboard():
                 "name": "AcuRite Iris",
                 "model_code": "5in1WS",
                 "last_check_in_at": "2026-08-13T06:15:00-07:00",
+                "summary_files": [
+                    (
+                        "https://dataapi.myacurite.com/mar-sensor-readings/"
+                        "synthetic-device/1h-summaries/2026-08-13.json"
+                    )
+                ],
                 "sensors": [
                     {
+                        "channel": 1,
                         "sensor_name": "Temperature",
                         "last_reading_value": "62.5",
                         "chart_unit": "F",
                     },
                     {
+                        "channel": 2,
                         "sensor_name": "Humidity",
                         "last_reading_value": 41,
                         "chart_unit": "%",
                     },
                     {
+                        "channel": 3,
                         "sensor_name": "Lightning Closest Strike Distance",
                         "last_reading_value": None,
                         "chart_unit": "mi",
@@ -76,13 +87,21 @@ def synthetic_dashboard():
                 "name": "Greenhouse sensor Greenhouse sensor",
                 "model_code": "2in1T",
                 "last_check_in_at": "2026-08-13T06:14:00-07:00",
+                "summary_files": [
+                    (
+                        "https://dataapi.myacurite.com/mar-sensor-readings/"
+                        "synthetic-auxiliary/1h-summaries/2026-08-13.json"
+                    )
+                ],
                 "sensors": [
                     {
+                        "channel": 1,
                         "sensor_name": "Temperature",
                         "last_reading_value": 49.1,
                         "chart_unit": "F",
                     },
                     {
+                        "channel": 2,
                         "sensor_name": "Humidity",
                         "last_reading_value": 86,
                         "chart_unit": "%RH",
@@ -119,6 +138,54 @@ class MyAcuriteParsingTest(unittest.TestCase):
             parse_snapshots({"unexpected": private_value})
 
         self.assertNotIn(private_value, str(raised.exception))
+
+    def test_derives_only_recent_five_minute_files(self):
+        source = (
+            "https://dataapi.myacurite.com/mar-sensor-readings/"
+            "private-value/1h-summaries/2026-08-13.json"
+        )
+
+        urls = five_minute_urls(source)
+
+        self.assertEqual(
+            [url.rsplit("/", 1)[-1] for url in urls],
+            ["2026-08-13.json", "2026-08-12.json", "2026-08-11.json"],
+        )
+        self.assertTrue(all("/5m-summaries/" in url for url in urls))
+
+    def test_parses_history_by_generic_channel_and_preferred_unit(self):
+        device = synthetic_dashboard()["devices"][0]
+        payload = {
+            "1": [
+                {
+                    "happened_at": "2026-08-13T13:15:00+00:00",
+                    "raw_values": {"C": 12.5, "F": 54.5},
+                }
+            ],
+            "2": [
+                {
+                    "happened_at": "2026-08-13T13:15:00+00:00",
+                    "raw_values": {"RH": 41},
+                }
+            ],
+        }
+
+        rows = parse_history_rows(
+            device,
+            payload,
+            station_key="home",
+            station_display_name="AcuRite Iris",
+        )
+
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0].station_key, "home")
+        self.assertEqual(
+            rows[0].readings,
+            (
+                SensorReading("temperature", 54.5, "°F"),
+                SensorReading("humidity", 41.0, "%"),
+            ),
+        )
 
 
 class MyAcuriteClientTest(unittest.TestCase):
@@ -173,6 +240,42 @@ class MyAcuriteClientTest(unittest.TestCase):
         message = str(raised.exception)
         self.assertNotIn(self.config.email, message)
         self.assertNotIn(self.config.password, message)
+
+    def test_fetches_recent_history_without_refetching_dashboard(self):
+        dashboard = synthetic_dashboard()
+        history = {
+            "1": [
+                {
+                    "happened_at": "2026-08-13T13:15:00+00:00",
+                    "raw_values": {"F": 54.5},
+                }
+            ]
+        }
+        session = FakeSession(
+            [self.login],
+            [
+                FakeResponse({"account_hubs": [{"id": 12345}]}),
+                FakeResponse(dashboard),
+                FakeResponse(history),
+                FakeResponse(status_code=404),
+                FakeResponse(status_code=404),
+                FakeResponse(history),
+                FakeResponse(status_code=404),
+                FakeResponse(status_code=404),
+            ],
+        )
+        client = MyAcuriteClient(self.config, session=session)
+
+        client.fetch_snapshots()
+        rows = client.fetch_history()
+
+        self.assertEqual(len(rows), 2)
+        self.assertEqual(rows[0].station_key, "home")
+        self.assertEqual(rows[1].station_key, "sensor_1")
+        dashboard_calls = [
+            url for url, _kwargs in session.get_calls if "/dashboard/hubs/" in url
+        ]
+        self.assertEqual(len(dashboard_calls), 1)
 
     def test_requires_exactly_one_discovered_hub(self):
         session = FakeSession(

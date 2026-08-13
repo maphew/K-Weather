@@ -111,6 +111,10 @@ Data gathering must run every six hours.
   SQLite snapshot, Restic encryption and retention, repository check, test
   restore, integrity check, and observation count/freshness comparison. See
   ADR 0010. OAuth and encryption secrets remain in mode-0600 private files.
+- Added ongoing MyAcuRite five-minute cloud capture. Each six-hour refresh now
+  fetches the dashboard day plus the prior two days for all three sensors and
+  idempotently upserts the normalized summaries. Account-linked summary paths
+  exist only in process memory. See ADR 0011.
 
 Generated CSV files under `yukon_weather/` are local verification output and
 are intentionally ignored by Git. The private SQLite database is ignored too.
@@ -122,10 +126,9 @@ repository. The imported private handoff history was intentionally excluded.
 
 ## Next job
 
-Add ongoing five-minute MyAcuRite cloud ingestion so each six-hour refresh gets
-all unseen summary readings, re-fetches the prior 48 hours, and upserts them
-idempotently. Also replace rclone's shared Google OAuth client ID before its
-announced 2026 retirement; current authorization works but is not durable.
+Replace rclone's shared Google OAuth client ID before its announced 2026
+retirement; current authorization works but is not durable. After enough new
+history accumulates, consider household-vs-ECCC calibration comparisons.
 
 ## Production
 
@@ -143,7 +146,7 @@ database and service environment.
 
 ## Verification
 
-- `python -m unittest -v`: 42 tests passed, including MyAcuRite login/session
+- `python -m unittest -v`: 45 tests passed, including MyAcuRite login/session
   retry, schema validation, null readings, timestamp/unit normalization,
   privacy-safe failures, idempotent snapshots, sub-daily dashboard filtering,
   form login sessions, OIDC claims, refresh failure recording, and concurrency.
@@ -194,6 +197,10 @@ database and service environment.
   Actions workflow run `31752270428` completed refresh, backup, repository
   check, restore, and database validation in 1m19s through the production HTTP
   endpoints. Unauthorized backup requests return `401`.
+- Live read-only MyAcuRite validation fetched 959 recent station timestamps and
+  4,016 normalized observations across three devices from nine five-minute
+  files, spanning 2026-08-11 through 2026-08-13. The application did not persist
+  any private URL or upstream identifier.
 
 ## Session rule
 
