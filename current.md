@@ -46,7 +46,10 @@ Data gathering must run every six hours.
   no long-lived scheduler secret exists. See ADR 0005.
 - Deployed production to Sprites.dev with one Gunicorn worker, persistent
   SQLite storage, a restart-on-wake Sprite Service, and app authentication.
-- Created Sprite checkpoint `v2` after deployment and credential rotation.
+- Replaced browser-native authentication prompts with a mobile-friendly sign-in
+  form after Android Firefox and Chrome repeatedly rejected the popup flow.
+- Rotated the dashboard password again and added a separate signed-session key.
+- Created Sprite checkpoint `v3` after the mobile login deployment.
 
 Generated CSV files under `yukon_weather/` are local verification output and
 are intentionally ignored by Git. The private SQLite database is ignored too.
@@ -77,7 +80,7 @@ the real private export.
 - Service: `dashboard`, one Gunicorn worker on port 8080
 - Database: `/home/sprite/k-weather/yukon_weather/k-weather.sqlite3`
 - Schedule: `.github/workflows/refresh.yml`, `17 */6 * * *`
-- Checkpoint: `v2`
+- Checkpoint: `v3`
 
 For a code update: push `main`, run `sprite exec -- bash -lc 'cd
 /home/sprite/k-weather && git pull --ff-only && .venv/bin/pip install -r
@@ -97,14 +100,17 @@ database and service environment.
 - Browser exercise on real data: default view rendered three charts; submitting
   a mean-temperature/date filter produced one chart and preserved all filters
   in the URL. The inspected desktop screenshot had no clipping or layout defects.
-- Production returned `401` without dashboard credentials and `200` with them;
-  a random refresh bearer token returned `401`.
-- GitHub Actions workflow runs `31664609923` and `31664825519` obtained OIDC
-  tokens and completed protected production refreshes successfully, including
-  after the final service recreation and credential rotation.
+- Production redirects unauthenticated dashboard visits to `/login`; a random
+  refresh bearer token returns `401`.
+- GitHub Actions workflow runs `31664609923`, `31664825519`, and `31667596567`
+  obtained OIDC tokens and completed protected production refreshes
+  successfully, including after the mobile login deployment.
 - Production SQLite remained at 14,066 unique observations and recorded one
   completed refresh per workflow run. The authenticated 390 px browser check
   rendered three charts with no horizontal overflow.
+- A second 390 px production browser check exercised the normal login form with
+  the final rotated credentials, loaded all three charts, and verified that the
+  resulting session cookie is both `Secure` and `HttpOnly`.
 
 ## Time-sensitive manual action
 
