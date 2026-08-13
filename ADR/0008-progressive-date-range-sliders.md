@@ -22,6 +22,8 @@ continue to work.
 Apply one history range to every selected source and station. Include household
 temperature in the default charts, and render SVG point markers for series with
 24 or fewer observations so isolated AcuRite snapshots remain visible.
+Combine selected ECCC daily high/mean/low and AcuRite temperature series in one
+temperature-comparison chart so source differences are immediately apparent.
 
 Current-condition cards continue to mean the latest available readings and are
 therefore independent of the historical range.

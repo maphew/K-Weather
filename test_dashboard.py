@@ -216,6 +216,37 @@ class DashboardTest(unittest.TestCase):
         self.assertIn(b"Aug 13, 9:45 AM", response.data)
         self.assertNotIn(b"Data may be stale", response.data)
 
+    def test_default_temperature_chart_combines_eccc_and_acurite(self) -> None:
+        self.add_rows(
+            [
+                {
+                    "Station Name": "WHITEHORSE A",
+                    "Date/Time": "2026-08-13",
+                    "Max Temp (°C)": 24,
+                    "Min Temp (°C)": 10,
+                    "Mean Temp (°C)": 17,
+                }
+            ]
+        )
+        database = connect_database(self.database_path)
+        ingest_myacurite_snapshot(
+            database,
+            station_name="AcuRite Iris",
+            observed_at="2026-08-13T12:00:00+00:00",
+            readings=(SensorReading("temperature", 20, "°C"),),
+        )
+        database.close()
+
+        response = self.client().get("/", headers=self.auth_header())
+
+        self.assertEqual(response.data.count(b'data-chart="'), 1)
+        self.assertIn(b'data-chart="temperature_comparison"', response.data)
+        self.assertIn(b"Temperature comparison", response.data)
+        self.assertIn(b"WHITEHORSE A \xc2\xb7 ECCC \xc2\xb7 Daily high", response.data)
+        self.assertIn(
+            b"AcuRite Iris \xc2\xb7 AcuRite \xc2\xb7 Temperature", response.data
+        )
+
     def test_stale_condition_explains_threshold_in_tooltip(self) -> None:
         database = connect_database(self.database_path)
         ingest_myacurite_snapshot(

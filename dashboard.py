@@ -41,7 +41,23 @@ DEFAULT_METRICS = (
     "temperature",
 )
 
-COLORS = ("#d95d39", "#277da1", "#4d908e", "#9c6644", "#7b2cbf")
+COLORS = (
+    "#d95d39",
+    "#277da1",
+    "#4d908e",
+    "#9c6644",
+    "#7b2cbf",
+    "#f8961e",
+    "#577590",
+    "#43aa8b",
+)
+
+TEMPERATURE_METRICS = {
+    "maximum_temperature",
+    "minimum_temperature",
+    "mean_temperature",
+    "temperature",
+}
 
 
 @dataclass(frozen=True)
@@ -312,6 +328,16 @@ def load_charts(
 ) -> tuple[MetricChart, ...]:
     if not station_keys or not metrics:
         return ()
+    compare_temperatures = len(TEMPERATURE_METRICS.intersection(metrics)) > 1
+    chart_keys = {
+        metric: (
+            "temperature_comparison"
+            if compare_temperatures and metric in TEMPERATURE_METRICS
+            else metric
+        )
+        for metric in metrics
+    }
+    chart_order = tuple(dict.fromkeys(chart_keys[metric] for metric in metrics))
     stations = [tuple(value.split(":", 1)) for value in station_keys]
     station_clause = " OR ".join(
         "(o.source = ? AND o.station_key = ?)" for _ in stations
@@ -341,13 +367,16 @@ def load_charts(
     )
     units: dict[str, str] = {}
     for metric, unit, observed_at, value, station_name, source in rows:
-        units[metric] = unit
+        chart_key = chart_keys[metric]
+        units[chart_key] = unit
         station_label = f"{station_name} · {source_label(source)}"
-        grouped[metric][station_label].append((observed_at, value))
+        if chart_key == "temperature_comparison":
+            station_label = f"{station_label} · {METRIC_LABELS[metric]}"
+        grouped[chart_key][station_label].append((observed_at, value))
 
     charts = []
-    for metric in metrics:
-        station_values = grouped.get(metric)
+    for chart_key in chart_order:
+        station_values = grouped.get(chart_key)
         if not station_values:
             continue
         values = [value for points in station_values.values() for _, value in points]
@@ -382,9 +411,13 @@ def load_charts(
             )
         charts.append(
             MetricChart(
-                key=metric,
-                label=METRIC_LABELS.get(metric, metric),
-                unit=units[metric],
+                key=chart_key,
+                label=(
+                    "Temperature comparison"
+                    if chart_key == "temperature_comparison"
+                    else METRIC_LABELS.get(chart_key, chart_key)
+                ),
+                unit=units[chart_key],
                 minimum=minimum,
                 maximum=maximum,
                 average=sum(values) / len(values),

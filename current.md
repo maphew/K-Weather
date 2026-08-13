@@ -89,6 +89,9 @@ Data gathering must run every six hours.
 - Deployed and browser-tested bidirectional slider/date synchronization at
   desktop and 390 px widths. Both ECCC and AcuRite charts responded to one
   submitted range; inspected controls had no clipping or horizontal overflow.
+- Combined default ECCC and AcuRite temperatures into one comparison chart;
+  previously AcuRite was technically present but isolated in a fourth graph
+  below the ECCC charts and therefore easy to miss.
 
 Generated CSV files under `yukon_weather/` are local verification output and
 are intentionally ignored by Git. The private SQLite database is ignored too.
@@ -123,7 +126,7 @@ database and service environment.
 
 ## Verification
 
-- `python -m unittest -v`: 31 tests passed, including MyAcuRite login/session
+- `python -m unittest -v`: 32 tests passed, including MyAcuRite login/session
   retry, schema validation, null readings, timestamp/unit normalization,
   privacy-safe failures, idempotent snapshots, sub-daily dashboard filtering,
   form login sessions, OIDC claims, refresh failure recording, and concurrency.
