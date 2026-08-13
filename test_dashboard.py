@@ -247,6 +247,33 @@ class DashboardTest(unittest.TestCase):
             b"AcuRite Iris \xc2\xb7 AcuRite \xc2\xb7 Temperature", response.data
         )
 
+    def test_household_data_defaults_history_to_latest_31_days(self) -> None:
+        self.add_rows(
+            [
+                {
+                    "Station Name": "WHITEHORSE A",
+                    "Date/Time": "2026-01-01",
+                    "Mean Temp (°C)": -20,
+                }
+            ]
+        )
+        database = connect_database(self.database_path)
+        ingest_myacurite_snapshot(
+            database,
+            station_name="AcuRite Iris",
+            observed_at="2026-08-13T12:00:00+00:00",
+            readings=(SensorReading("temperature", 20, "°C"),),
+        )
+        database.close()
+
+        response = self.client().get("/", headers=self.auth_header())
+
+        self.assertIn(b'name="start" min="2026-01-01"', response.data)
+        self.assertIn(
+            b'name="start" min="2026-01-01" max="2026-08-13" value="2026-07-14"',
+            response.data,
+        )
+
     def test_stale_condition_explains_threshold_in_tooltip(self) -> None:
         database = connect_database(self.database_path)
         ingest_myacurite_snapshot(

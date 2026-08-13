@@ -329,12 +329,21 @@ def chart_points(
     ]
 
 
-def default_start(options: DashboardOptions) -> str | None:
+def default_start(
+    options: DashboardOptions, connection: sqlite3.Connection | None = None
+) -> str | None:
     if not options.first_date or not options.last_date:
         return None
     first = date.fromisoformat(options.first_date)
     last = date.fromisoformat(options.last_date)
-    return max(first, last - timedelta(days=365)).isoformat()
+    days = 365
+    if connection is not None:
+        has_household_data = connection.execute(
+            "SELECT EXISTS (SELECT 1 FROM observations WHERE source = 'myacurite')"
+        ).fetchone()[0]
+        if has_household_data:
+            days = 30
+    return max(first, last - timedelta(days=days)).isoformat()
 
 
 def load_charts(

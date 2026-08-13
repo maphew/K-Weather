@@ -161,7 +161,9 @@ def create_app(
                     charts=(),
                     current_conditions=current_conditions,
                 )
-            start = valid_date(request.args.get("start"), default_start(options) or "")
+            start = valid_date(
+                request.args.get("start"), default_start(options, database) or ""
+            )
             end = valid_date(request.args.get("end"), options.last_date)
             if start > end:
                 start, end = end, start
