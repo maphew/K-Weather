@@ -95,6 +95,9 @@ Data gathering must run every six hours.
 - Production verification confirmed the single default comparison chart has
   three ECCC series and three AcuRite series, with sparse household readings
   shown as distinct markers and source names visible in the legend.
+- Submitted one MyAcuRite CSV export for the full available 2026-07-14 through
+  2026-08-13 window to the account's existing notification contact. The export
+  API accepted the request with HTTP `201`; K-Weather awaits the emailed file.
 
 Generated CSV files under `yukon_weather/` are local verification output and
 are intentionally ignored by Git. The private SQLite database is ignored too.
@@ -108,8 +111,9 @@ repository. The imported private handoff history was intentionally excluded.
 
 Preserve the history that predates automated capture:
 
-1. Export and privately attach the current rolling 31-day MyAcuRite CSV before
-   older readings expire. Inspect its real schema, then add the importer.
+1. Retrieve the MyAcuRite export requested for 2026-07-14 through 2026-08-13
+   from the account notification email and privately attach the CSV. Inspect
+   its real schema, then add the importer.
 2. After enough snapshots accumulate, consider household-vs-ECCC calibration
    comparisons. Direct Acuparse capture remains the fallback for finer detail.
 
