@@ -282,3 +282,74 @@ def ingest_myacurite_snapshot(
             )
         raise
     return IngestionResult(run_id, len(records), len(records))
+
+
+def ingest_myacurite_history(
+    connection: sqlite3.Connection, *, rows: Iterable[Any]
+) -> IngestionResult:
+    """Idempotently import private five-minute MyAcuRite history."""
+    records = list(rows)
+    started_at = utc_now()
+    with connection:
+        run_id = connection.execute(
+            """
+            INSERT INTO ingestion_runs
+                (source, station_key, started_at, status, rows_received)
+            VALUES ('myacurite', 'home', ?, 'running', ?)
+            """,
+            (started_at, len(records)),
+        ).lastrowid
+    written = 0
+    try:
+        with connection:
+            for row in records:
+                connection.execute(
+                    """
+                    INSERT INTO stations (source, station_key, name)
+                    VALUES ('myacurite', ?, ?)
+                    ON CONFLICT (source, station_key)
+                    DO UPDATE SET name = excluded.name
+                    """,
+                    (row.station_key, row.station_name),
+                )
+                for reading in row.readings:
+                    connection.execute(
+                        """
+                        INSERT INTO observations
+                            (source, station_key, observed_at, interval, metric,
+                             value, unit, quality_flag, ingested_at)
+                        VALUES ('myacurite', ?, ?, 'five_minute', ?, ?, ?, NULL, ?)
+                        ON CONFLICT
+                            (source, station_key, observed_at, interval, metric)
+                        DO UPDATE SET value = excluded.value, unit = excluded.unit,
+                                      ingested_at = excluded.ingested_at
+                        """,
+                        (
+                            row.station_key,
+                            row.observed_at,
+                            reading.metric,
+                            reading.value,
+                            reading.unit,
+                            started_at,
+                        ),
+                    )
+                    written += 1
+            connection.execute(
+                """
+                UPDATE ingestion_runs
+                SET completed_at = ?, status = 'completed', observations_written = ?
+                WHERE id = ?
+                """,
+                (utc_now(), written, run_id),
+            )
+    except Exception as error:
+        with connection:
+            connection.execute(
+                """
+                UPDATE ingestion_runs
+                SET completed_at = ?, status = 'failed', error = ? WHERE id = ?
+                """,
+                (utc_now(), str(error), run_id),
+            )
+        raise
+    return IngestionResult(run_id, len(records), written)

@@ -310,6 +310,17 @@ def timestamp(value: str) -> float:
     return parsed.timestamp()
 
 
+def chart_points(
+    points: list[tuple[str, float]], limit: int = 500
+) -> list[tuple[str, float]]:
+    """Bound SVG size while retaining the first and last observations."""
+    if len(points) <= limit:
+        return points
+    return [
+        points[round(index * (len(points) - 1) / (limit - 1))] for index in range(limit)
+    ]
+
+
 def default_start(options: DashboardOptions) -> str | None:
     if not options.first_date or not options.last_date:
         return None
@@ -393,7 +404,7 @@ def load_charts(
         )
         for index, (station_label, points) in enumerate(station_values.items()):
             coordinates = []
-            for observed_at, value in points:
+            for observed_at, value in chart_points(points):
                 x = 52 + 926 * ((timestamp(observed_at) - start_timestamp) / x_span)
                 y = 18 + 204 * ((maximum - value) / y_span)
                 coordinates.append(f"{x:.1f},{y:.1f}")

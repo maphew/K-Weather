@@ -79,6 +79,18 @@ The private API returns only current values. Manually export the rolling 31-day
 CSV before older readings expire, keep it out of Git, and provide it privately
 before implementing the historical importer against its real schema.
 
+Import an emailed export only from ignored private storage:
+
+```bash
+python import_myacurite_csv.py private-export.csv \
+  --database yukon_weather/k-weather.sqlite3
+```
+
+The importer retains full five-minute history, is idempotent, and requires the
+auxiliary sensors to already exist from a successful cloud refresh. Charts
+bound rendered points without deleting full-resolution observations. See ADR
+0009.
+
 Production runs at <https://k-weather-m4xy.sprites.app>. Authorized household
 members need the separately shared dashboard username and password.
 
