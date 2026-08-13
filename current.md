@@ -134,7 +134,7 @@ announced 2026 retirement; current authorization works but is not durable.
 - Service: `dashboard`, one Gunicorn worker on port 8080
 - Database: `/home/sprite/k-weather/yukon_weather/k-weather.sqlite3`
 - Schedule: `.github/workflows/refresh.yml`, `17 */6 * * *`
-- Checkpoint: `v9`
+- Checkpoint: `v10` (`encrypted Google Drive backup operational`)
 
 For a code update: push `main`, run `sprite exec -- bash -lc 'cd
 /home/sprite/k-weather && git pull --ff-only && .venv/bin/pip install -r
@@ -190,8 +190,10 @@ database and service environment.
   displays the full AcuRite counts, and has no horizontal overflow.
 - A synthetic Restic repository completed snapshot, retention/prune, repository
   check, restore, SQLite integrity, row-count, and newest-timestamp validation.
-  Google Drive access was verified privately from the Sprite; the first real
-  production backup remains the deployment gate.
+  Production now has three encrypted Google Drive recovery points. GitHub
+  Actions workflow run `31752270428` completed refresh, backup, repository
+  check, restore, and database validation in 1m19s through the production HTTP
+  endpoints. Unauthorized backup requests return `401`.
 
 ## Session rule
 
