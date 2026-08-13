@@ -49,7 +49,10 @@ Data gathering must run every six hours.
 - Replaced browser-native authentication prompts with a mobile-friendly sign-in
   form after Android Firefox and Chrome repeatedly rejected the popup flow.
 - Rotated the dashboard password again and added a separate signed-session key.
-- Created Sprite checkpoint `v3` after the mobile login deployment.
+- Made username matching case-insensitive, trimmed accidental copy whitespace,
+  disabled mobile autocapitalization/correction, and rotated to an alphanumeric-
+  only password after a second Android login report.
+- Created Sprite checkpoint `v4` after the Android login hardening.
 
 Generated CSV files under `yukon_weather/` are local verification output and
 are intentionally ignored by Git. The private SQLite database is ignored too.
@@ -80,7 +83,7 @@ the real private export.
 - Service: `dashboard`, one Gunicorn worker on port 8080
 - Database: `/home/sprite/k-weather/yukon_weather/k-weather.sqlite3`
 - Schedule: `.github/workflows/refresh.yml`, `17 */6 * * *`
-- Checkpoint: `v3`
+- Checkpoint: `v4`
 
 For a code update: push `main`, run `sprite exec -- bash -lc 'cd
 /home/sprite/k-weather && git pull --ff-only && .venv/bin/pip install -r
@@ -89,9 +92,9 @@ database and service environment.
 
 ## Verification
 
-- `python -m unittest -v`: 17 tests passed, including form login sessions, OIDC
-  claims, unauthorized access, idempotent refresh, failure recording, and
-  concurrency.
+- `python -m unittest -v`: 18 tests passed, including form login sessions,
+  mobile capitalization/copy whitespace, OIDC claims, unauthorized access,
+  idempotent refresh, failure recording, and concurrency.
 - Ruff lint and formatting checks passed for all tracked Python.
 - Live ECCC import: 2,401 daily rows became 14,066 normalized observations
   spanning 2020-01-01 through 2026-08-11.
@@ -111,6 +114,9 @@ database and service environment.
 - A second 390 px production browser check exercised the normal login form with
   the final rotated credentials, loaded all three charts, and verified that the
   resulting session cookie is both `Secure` and `HttpOnly`.
+- The exact final credential artifact was parsed and submitted to the production
+  form: login returned `302` to the dashboard and the resulting session loaded
+  the dashboard with HTTP `200`.
 
 ## Time-sensitive manual action
 
