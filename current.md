@@ -102,6 +102,10 @@ Data gathering must run every six hours.
   rows and 98,095 populated observations from 2026-07-14 through 2026-08-13.
   Added and dry-ran an idempotent full-resolution importer; chart rendering is
   capped at 500 points per series without discarding stored data. See ADR 0009.
+- Imported the full private export into production and verified all three
+  station histories. Re-importing left the unique five-minute count at 98,095
+  with no failed runs. The default now opens to the available 31-day household
+  window while the range controls can still expand to the full ECCC archive.
 
 Generated CSV files under `yukon_weather/` are local verification output and
 are intentionally ignored by Git. The private SQLite database is ignored too.
@@ -113,12 +117,8 @@ repository. The imported private handoff history was intentionally excluded.
 
 ## Next job
 
-Preserve the history that predates automated capture:
-
-1. Deploy the importer, transfer the ignored private CSV directly to the Sprite,
-   import it, and verify production counts and chart behavior.
-2. After enough snapshots accumulate, consider household-vs-ECCC calibration
-   comparisons. Direct Acuparse capture remains the fallback for finer detail.
+After enough snapshots accumulate, consider household-vs-ECCC calibration
+comparisons. Direct Acuparse capture remains the fallback for finer detail.
 
 ## Production
 
@@ -127,7 +127,7 @@ Preserve the history that predates automated capture:
 - Service: `dashboard`, one Gunicorn worker on port 8080
 - Database: `/home/sprite/k-weather/yukon_weather/k-weather.sqlite3`
 - Schedule: `.github/workflows/refresh.yml`, `17 */6 * * *`
-- Checkpoint: `v7`
+- Checkpoint: `v9`
 
 For a code update: push `main`, run `sprite exec -- bash -lc 'cd
 /home/sprite/k-weather && git pull --ff-only && .venv/bin/pip install -r
@@ -136,7 +136,7 @@ database and service environment.
 
 ## Verification
 
-- `python -m unittest -v`: 32 tests passed, including MyAcuRite login/session
+- `python -m unittest -v`: 37 tests passed, including MyAcuRite login/session
   retry, schema validation, null readings, timestamp/unit normalization,
   privacy-safe failures, idempotent snapshots, sub-daily dashboard filtering,
   form login sessions, OIDC claims, refresh failure recording, and concurrency.
@@ -176,11 +176,11 @@ database and service environment.
   Automated DOM checks confirmed three cards, 17 values, no coordinates or
   account-linked station metadata, and no horizontal overflow at desktop or
   390 px widths. Inspected screenshots confirmed all values are readable.
-
-## Time-sensitive manual action
-
-Export the current rolling 31-day MyAcuRite CSV before older readings expire.
-MyAcuRite does not retain older detailed observations.
+- The private CSV import retained 16,967 five-minute station timestamps and
+  98,095 normalized observations across three household stations from
+  2026-07-14 through 2026-08-13. A second import left that unique count
+  unchanged. The authenticated default chart loads in about 0.55 seconds,
+  displays the full AcuRite counts, and has no horizontal overflow.
 
 ## Session rule
 
