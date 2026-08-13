@@ -53,6 +53,19 @@ Data gathering must run every six hours.
   disabled mobile autocapitalization/correction, and rotated to an alphanumeric-
   only password after a second Android login report.
 - Created Sprite checkpoint `v4` after the Android login hardening.
+- Added a privacy-preserving MyAcuRite cloud client for the AcuRite Iris. It
+  signs in with private environment configuration, retries one expired session,
+  normalizes the latest sensor snapshot, discards precise location metadata,
+  and emits only sanitized errors. See ADR 0006.
+- Integrated optional household capture into the existing protected six-hour
+  refresh and normalized SQLite store. Snapshot check-in timestamps make
+  retries idempotent, and the household station and metrics now work with the
+  dashboard's date, station, and metric filters.
+- Updated chart queries for sub-daily timestamps and inclusive end dates.
+- Verified the private API against the household account without retaining raw
+  responses: automatic discovery found one hub and the Iris returned nine
+  usable readings in the expected metric units. The hardware Device ID is not
+  needed and was removed from configuration.
 
 Generated CSV files under `yukon_weather/` are local verification output and
 are intentionally ignored by Git. The private SQLite database is ignored too.
@@ -61,20 +74,20 @@ environment. Never copy their values into this file, Git, logs, or issues.
 
 The sanitized history is published in the public `maphew/K-Weather` GitHub
 repository. The imported private handoff history was intentionally excluded.
-`main` tracks `origin/main`.
 
 ## Next job
 
-The requested ECCC dashboard and six-hour refresh are operational. The next
-separate product job requires household input:
+The AcuRite integration and private local configuration are verified. Remaining
+deployment and historical-import work:
 
-1. Obtain the manually exported rolling 31-day MyAcuRite CSV outside Git.
-2. Inspect its real schema without exposing account/device identifiers.
-3. Add a private AcuRite importer with synthetic public fixtures.
-4. Add household-vs-ECCC dashboard series and calibration comparisons.
-
-Do not guess the MyAcuRite CSV schema or add an account scraper before receiving
-the real private export.
+1. Copy the configured `MYACURITE_EMAIL` and `MYACURITE_PASSWORD` into private
+   Sprite service configuration, never chat or Git.
+2. Run one protected refresh and verify that the actual sensor names, units,
+   and timestamp schema match the synthetic tests.
+3. Export and privately attach the current rolling 31-day MyAcuRite CSV before
+   older readings expire. Inspect its real schema, then add the importer.
+4. After enough snapshots accumulate, consider household-vs-ECCC calibration
+   comparisons. Direct Acuparse capture remains the fallback for finer detail.
 
 ## Production
 
@@ -92,9 +105,10 @@ database and service environment.
 
 ## Verification
 
-- `python -m unittest -v`: 18 tests passed, including form login sessions,
-  mobile capitalization/copy whitespace, OIDC claims, unauthorized access,
-  idempotent refresh, failure recording, and concurrency.
+- `python -m unittest -v`: 28 tests passed, including MyAcuRite login/session
+  retry, schema validation, null readings, timestamp/unit normalization,
+  privacy-safe failures, idempotent snapshots, sub-daily dashboard filtering,
+  form login sessions, OIDC claims, refresh failure recording, and concurrency.
 - Ruff lint and formatting checks passed for all tracked Python.
 - Live ECCC import: 2,401 daily rows became 14,066 normalized observations
   spanning 2020-01-01 through 2026-08-11.

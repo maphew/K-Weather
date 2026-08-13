@@ -25,7 +25,7 @@ from dashboard import (
     load_options,
     load_refresh_status,
 )
-from refresh import refresh_eccc
+from refresh import refresh_weather
 from weather_store import connect_database
 
 DEFAULT_DATABASE = Path("yukon_weather/k-weather.sqlite3")
@@ -48,7 +48,7 @@ def create_app(
     secret_key: str | None = None,
     refresh_token: str | None = None,
     refresh_token_verifier=github_actions_refresh_token_valid,
-    refresher=refresh_eccc,
+    refresher=refresh_weather,
 ) -> Flask:
     app = Flask(__name__)
     app.config["DATABASE"] = str(

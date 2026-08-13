@@ -10,7 +10,13 @@ from datetime import datetime, timezone
 import pandas as pd
 
 from get_yukon_weather import SLEEP_SEC, STATIONS, fetch_year
-from weather_store import IngestionResult, ingest_eccc_daily, utc_now
+from myacurite import MyAcuriteClient, load_myacurite_config
+from weather_store import (
+    IngestionResult,
+    ingest_eccc_daily,
+    ingest_myacurite_snapshot,
+    utc_now,
+)
 
 FetchYear = Callable[[int, int], pd.DataFrame]
 
@@ -82,6 +88,39 @@ def refresh_eccc(
                 WHERE id = ?
                 """,
                 (utc_now(), str(error), run_id),
+            )
+        raise
+    return tuple(results)
+
+
+def refresh_weather(
+    connection: sqlite3.Connection,
+    *,
+    acurite_client_factory=MyAcuriteClient,
+) -> tuple[IngestionResult, ...]:
+    """Refresh public ECCC data and the household station when configured."""
+    results = list(refresh_eccc(connection))
+    config = load_myacurite_config()
+    if config is None:
+        return tuple(results)
+    try:
+        snapshot = acurite_client_factory(config).fetch_snapshot()
+        results.append(
+            ingest_myacurite_snapshot(
+                connection,
+                observed_at=snapshot.observed_at,
+                readings=snapshot.readings,
+            )
+        )
+    except Exception as error:
+        with connection:
+            connection.execute(
+                """
+                INSERT INTO refresh_runs
+                    (started_at, completed_at, status, error)
+                VALUES (?, ?, 'failed', ?)
+                """,
+                (utc_now(), utc_now(), str(error)),
             )
         raise
     return tuple(results)

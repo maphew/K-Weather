@@ -6,7 +6,13 @@ from pathlib import Path
 from threading import Event
 
 from app import create_app
-from weather_store import IngestionResult, connect_database, ingest_eccc_daily
+from myacurite import SensorReading
+from weather_store import (
+    IngestionResult,
+    connect_database,
+    ingest_eccc_daily,
+    ingest_myacurite_snapshot,
+)
 
 
 class DashboardTest(unittest.TestCase):
@@ -122,6 +128,26 @@ class DashboardTest(unittest.TestCase):
         self.assertNotIn(b"-123.456", response.data)
         self.assertNotIn(b"54.321", response.data)
         self.assertNotIn(b"SYNTHETIC-STATION", response.data)
+
+    def test_household_snapshots_are_filterable_through_end_of_day(self) -> None:
+        database = connect_database(self.database_path)
+        ingest_myacurite_snapshot(
+            database,
+            observed_at="2026-08-13T23:45:00+00:00",
+            readings=(SensorReading("temperature", 62.5, "°F"),),
+        )
+        database.close()
+
+        response = self.client().get(
+            "/?metric=temperature&station=myacurite:home"
+            "&start=2026-08-13&end=2026-08-13",
+            headers=self.auth_header(),
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(b"Riverdale household station \xc2\xb7 AcuRite", response.data)
+        self.assertIn(b"62.5 \xc2\xb0F", response.data)
+        self.assertIn(b"1 observations", response.data)
 
     def test_dashboard_requires_authentication(self) -> None:
         response = self.client().get("/")

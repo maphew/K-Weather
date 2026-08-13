@@ -1,9 +1,12 @@
+import os
 import unittest
 from datetime import datetime, timezone
+from unittest.mock import patch
 
 import pandas as pd
 
-from refresh import refresh_eccc, refresh_years
+from myacurite import MyAcuriteSnapshot, SensorReading
+from refresh import refresh_eccc, refresh_weather, refresh_years
 from weather_store import connect_database
 
 
@@ -71,6 +74,39 @@ class RefreshTest(unittest.TestCase):
         ).fetchone()
         self.assertEqual(status, "failed")
         self.assertEqual(error, "private upstream detail")
+
+    @patch("refresh.refresh_eccc", return_value=())
+    def test_configured_household_snapshot_runs_on_shared_refresh(self, _refresh_eccc):
+        snapshot = MyAcuriteSnapshot(
+            "2026-08-13T13:15:00+00:00",
+            (SensorReading("temperature", 62.5, "°F"),),
+        )
+
+        class Client:
+            def __init__(self, _config):
+                pass
+
+            def fetch_snapshot(self):
+                return snapshot
+
+        environment = {
+            "MYACURITE_EMAIL": "person@example.invalid",
+            "MYACURITE_PASSWORD": "synthetic-password",
+        }
+        with patch.dict(os.environ, environment, clear=True):
+            refresh_weather(self.database, acurite_client_factory=Client)
+            refresh_weather(self.database, acurite_client_factory=Client)
+
+        self.assertEqual(
+            self.database.execute("SELECT count(*) FROM observations").fetchone()[0],
+            1,
+        )
+        self.assertEqual(
+            self.database.execute(
+                "SELECT count(*) FROM ingestion_runs WHERE source = 'myacurite'"
+            ).fetchone()[0],
+            2,
+        )
 
 
 if __name__ == "__main__":

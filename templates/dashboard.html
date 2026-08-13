@@ -13,7 +13,7 @@
       <h1>K-Weather</h1>
       <p class="lede">A clear view of weather patterns close to home.</p>
       {% if options and options.last_date %}
-        <p class="freshness"><span></span> Daily observations through {{ options.last_date }}</p>
+        <p class="freshness"><span></span> Observations through {{ options.last_date }}</p>
         {% if refresh_status and refresh_status.failed_at and (not refresh_status.completed_at or refresh_status.failed_at > refresh_status.completed_at) %}
           <p class="refresh-warning">The latest refresh failed. Existing observations remain available.</p>
         {% endif %}
@@ -94,7 +94,7 @@
               </div>
               <div class="legend">
                 {% for series in chart.series %}
-                  <span><i style="background: {{ series.color }}"></i>{{ series.label }} · {{ series.count }} days</span>
+                  <span><i style="background: {{ series.color }}"></i>{{ series.label }} · {{ series.count }} observations</span>
                 {% endfor %}
               </div>
             </article>

@@ -5,7 +5,7 @@ from __future__ import annotations
 import sqlite3
 from collections import defaultdict
 from dataclasses import dataclass
-from datetime import date, timedelta
+from datetime import date, datetime, time, timedelta, timezone
 
 METRIC_LABELS = {
     "maximum_temperature": "Daily high",
@@ -19,6 +19,17 @@ METRIC_LABELS = {
     "snow_on_ground": "Snow on ground",
     "maximum_gust_direction": "Strongest gust direction",
     "maximum_gust_speed": "Strongest gust speed",
+    "temperature": "Temperature",
+    "humidity": "Humidity",
+    "pressure": "Pressure",
+    "wind_speed": "Wind speed",
+    "wind_direction": "Wind direction",
+    "wind_speed_average": "Average wind speed",
+    "uv_index": "UV index",
+    "rainfall": "Rainfall",
+    "wind_chill": "Wind chill",
+    "dew_point": "Dew point",
+    "light_intensity": "Light intensity",
 }
 
 DEFAULT_METRICS = (
@@ -90,7 +101,8 @@ def load_refresh_status(connection: sqlite3.Connection) -> RefreshStatus:
 
 def load_options(connection: sqlite3.Connection) -> DashboardOptions:
     bounds = connection.execute(
-        "SELECT min(observed_at), max(observed_at) FROM observations"
+        "SELECT min(substr(observed_at, 1, 10)), max(substr(observed_at, 1, 10)) "
+        "FROM observations"
     ).fetchone()
     station_rows = connection.execute(
         """
@@ -117,7 +129,7 @@ def load_options(connection: sqlite3.Connection) -> DashboardOptions:
         stations=tuple(
             StationOption(
                 key=f"{source}:{station_key}",
-                label=f"{name} · {source.upper()}",
+                label=f"{name} · {source_label(source)}",
             )
             for source, station_key, name in station_rows
         ),
@@ -126,6 +138,20 @@ def load_options(connection: sqlite3.Connection) -> DashboardOptions:
             for metric, unit in metric_rows
         ),
     )
+
+
+def source_label(source: str) -> str:
+    return "AcuRite" if source == "myacurite" else source.upper()
+
+
+def timestamp(value: str) -> float:
+    if len(value) == 10:
+        parsed = datetime.combine(date.fromisoformat(value), time(), timezone.utc)
+    else:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        if parsed.tzinfo is None:
+            parsed = parsed.replace(tzinfo=timezone.utc)
+    return parsed.timestamp()
 
 
 def default_start(options: DashboardOptions) -> str | None:
@@ -151,21 +177,21 @@ def load_charts(
         "(o.source = ? AND o.station_key = ?)" for _ in stations
     )
     metric_clause = ", ".join("?" for _ in metrics)
-    parameters: list[str] = [start, end]
+    end_exclusive = (date.fromisoformat(end) + timedelta(days=1)).isoformat()
+    parameters: list[str] = [start, end_exclusive]
     for source, station_key in stations:
         parameters.extend((source, station_key))
     parameters.extend(metrics)
     rows = connection.execute(
         f"""
-        SELECT o.metric, o.unit, o.observed_at, o.value,
-               s.name || ' · ' || upper(s.source) AS station_label
+        SELECT o.metric, o.unit, o.observed_at, o.value, s.name, s.source
         FROM observations AS o
         JOIN stations AS s
           ON s.source = o.source AND s.station_key = o.station_key
-        WHERE o.observed_at BETWEEN ? AND ?
+        WHERE o.observed_at >= ? AND o.observed_at < ?
           AND ({station_clause})
           AND o.metric IN ({metric_clause})
-        ORDER BY o.metric, station_label, o.observed_at
+        ORDER BY o.metric, s.name, s.source, o.observed_at
         """,
         parameters,
     ).fetchall()
@@ -174,8 +200,9 @@ def load_charts(
         lambda: defaultdict(list)
     )
     units: dict[str, str] = {}
-    for metric, unit, observed_at, value, station_label in rows:
+    for metric, unit, observed_at, value, station_name, source in rows:
         units[metric] = unit
+        station_label = f"{station_name} · {source_label(source)}"
         grouped[metric][station_label].append((observed_at, value))
 
     charts = []
@@ -187,9 +214,9 @@ def load_charts(
         minimum = min(values)
         maximum = max(values)
         y_span = maximum - minimum or 1.0
-        start_ordinal = date.fromisoformat(start).toordinal()
-        end_ordinal = date.fromisoformat(end).toordinal()
-        x_span = end_ordinal - start_ordinal or 1
+        start_timestamp = timestamp(start)
+        end_timestamp = timestamp(end_exclusive)
+        x_span = end_timestamp - start_timestamp or 1
         series = []
         latest_date, latest = max(
             (point for points in station_values.values() for point in points),
@@ -198,13 +225,7 @@ def load_charts(
         for index, (station_label, points) in enumerate(station_values.items()):
             coordinates = []
             for observed_at, value in points:
-                if end_ordinal == start_ordinal:
-                    x = 515
-                else:
-                    x = 52 + 926 * (
-                        (date.fromisoformat(observed_at).toordinal() - start_ordinal)
-                        / x_span
-                    )
+                x = 52 + 926 * ((timestamp(observed_at) - start_timestamp) / x_span)
                 y = 18 + 204 * ((maximum - value) / y_span)
                 coordinates.append(f"{x:.1f},{y:.1f}")
             series.append(

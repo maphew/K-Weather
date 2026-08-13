@@ -55,6 +55,21 @@ current year (plus the previous year during January), safely upserts repeated
 observations, and wakes the Sprite through its public URL. The dashboard itself
 remains protected by application authentication.
 
+When `MYACURITE_EMAIL` and `MYACURITE_PASSWORD` are set in private environment
+configuration, the same refresh also captures the
+latest AcuRite Iris snapshot. The account ID and precise location returned by
+MyAcuRite are never stored. The household station appears as a neighbourhood-
+scale Riverdale source in the dashboard. See ADR 0006.
+
+Do not paste MyAcuRite credentials or account-linked IDs into chat, Git, logs,
+or issue trackers. The application privately discovers the account and hub IDs
+after login and retains them only in memory. Omitting both variables safely
+disables this source; a partial configuration is an error.
+
+The private API returns only current values. Manually export the rolling 31-day
+CSV before older readings expire, keep it out of Git, and provide it privately
+before implementing the historical importer against its real schema.
+
 Production runs at <https://k-weather-m4xy.sprites.app>. Authorized household
 members need the separately shared dashboard username and password.
 

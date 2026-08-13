@@ -209,3 +209,72 @@ def ingest_eccc_daily(
         raise
 
     return IngestionResult(run_id, len(records), observations_written)
+
+
+def ingest_myacurite_snapshot(
+    connection: sqlite3.Connection,
+    *,
+    observed_at: str,
+    readings: Iterable[Any],
+) -> IngestionResult:
+    """Idempotently store one household snapshot without account identifiers."""
+    records = list(readings)
+    started_at = utc_now()
+    with connection:
+        connection.execute(
+            """
+            INSERT INTO stations (source, station_key, name)
+            VALUES ('myacurite', 'home', 'Riverdale household station')
+            ON CONFLICT (source, station_key) DO UPDATE SET name = excluded.name
+            """
+        )
+        run_id = connection.execute(
+            """
+            INSERT INTO ingestion_runs
+                (source, station_key, started_at, status, rows_received)
+            VALUES ('myacurite', 'home', ?, 'running', ?)
+            """,
+            (started_at, len(records)),
+        ).lastrowid
+
+    try:
+        with connection:
+            for reading in records:
+                connection.execute(
+                    """
+                    INSERT INTO observations
+                        (source, station_key, observed_at, interval, metric,
+                         value, unit, quality_flag, ingested_at)
+                    VALUES ('myacurite', 'home', ?, 'snapshot', ?, ?, ?, NULL, ?)
+                    ON CONFLICT
+                        (source, station_key, observed_at, interval, metric)
+                    DO UPDATE SET value = excluded.value, unit = excluded.unit,
+                                  ingested_at = excluded.ingested_at
+                    """,
+                    (
+                        observed_at,
+                        reading.metric,
+                        reading.value,
+                        reading.unit,
+                        started_at,
+                    ),
+                )
+            connection.execute(
+                """
+                UPDATE ingestion_runs
+                SET completed_at = ?, status = 'completed', observations_written = ?
+                WHERE id = ?
+                """,
+                (utc_now(), len(records), run_id),
+            )
+    except Exception as error:
+        with connection:
+            connection.execute(
+                """
+                UPDATE ingestion_runs
+                SET completed_at = ?, status = 'failed', error = ? WHERE id = ?
+                """,
+                (utc_now(), str(error), run_id),
+            )
+        raise
+    return IngestionResult(run_id, len(records), len(records))
