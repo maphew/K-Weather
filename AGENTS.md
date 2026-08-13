@@ -32,7 +32,12 @@ Two findings that shaped this:
   `yukon_weather/k-weather.sqlite3`.
 - `test_weather_store.py` covers duplicate refreshes, blank observations,
   failed-run metadata, and station fallback.
-- No dashboard, scheduler, or deployment configuration exists yet.
+- `app.py`, `dashboard.py`, and `templates/dashboard.html` provide the
+  read-only Flask dashboard with server-rendered SVG charts and linkable date,
+  station, and metric filters. See ADR 0004.
+- `test_dashboard.py` covers empty, single-series, multi-metric, and location
+  privacy states.
+- No authentication, scheduler, or deployment configuration exists yet.
 
 ## Stations
 

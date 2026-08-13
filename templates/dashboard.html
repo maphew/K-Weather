@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>K-Weather · Riverdale</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='dashboard.css') }}">
+</head>
+<body>
+  <header class="hero">
+    <div class="hero__inner">
+      <p class="eyebrow">Riverdale · Whitehorse</p>
+      <h1>K-Weather</h1>
+      <p class="lede">A clear view of weather patterns close to home.</p>
+      {% if options and options.last_date %}
+        <p class="freshness"><span></span> Daily observations through {{ options.last_date }}</p>
+      {% endif %}
+    </div>
+  </header>
+
+  <main>
+    {% if not options or not options.last_date %}
+      <section class="empty-state" aria-labelledby="empty-title">
+        <p class="eyebrow">Waiting for observations</p>
+        <h2 id="empty-title">No weather data yet</h2>
+        <p>Run <code>uv run get_yukon_weather.py</code> to build the local weather history.</p>
+      </section>
+    {% else %}
+      <form class="filters" method="get" aria-label="Weather filters">
+        <div class="filters__dates">
+          <label>From <input type="date" name="start" min="{{ options.first_date }}" max="{{ options.last_date }}" value="{{ start }}"></label>
+          <label>To <input type="date" name="end" min="{{ options.first_date }}" max="{{ options.last_date }}" value="{{ end }}"></label>
+        </div>
+
+        <fieldset>
+          <legend>Weather measures</legend>
+          <div class="choice-grid">
+            {% for metric in options.metrics %}
+              <label class="choice">
+                <input type="checkbox" name="metric" value="{{ metric.key }}" {% if metric.key in selected_metrics %}checked{% endif %}>
+                <span>{{ metric.label }}</span>
+              </label>
+            {% endfor %}
+          </div>
+        </fieldset>
+
+        <fieldset>
+          <legend>Stations</legend>
+          <div class="choice-grid choice-grid--stations">
+            {% for station in options.stations %}
+              <label class="choice">
+                <input type="checkbox" name="station" value="{{ station.key }}" {% if station.key in selected_stations %}checked{% endif %}>
+                <span>{{ station.label }}</span>
+              </label>
+            {% endfor %}
+          </div>
+        </fieldset>
+        <button type="submit">Update view</button>
+      </form>
+
+      {% if charts %}
+        <section class="chart-grid" aria-label="Weather charts">
+          {% for chart in charts %}
+            <article class="chart-card" data-chart="{{ chart.key }}">
+              <div class="chart-card__header">
+                <div>
+                  <p class="eyebrow">{{ chart.unit }}</p>
+                  <h2>{{ chart.label }}</h2>
+                </div>
+                <div class="latest">
+                  <span>Latest</span>
+                  <strong>{{ "%.1f"|format(chart.latest) }} {{ chart.unit }}</strong>
+                  <small>{{ chart.latest_date }}</small>
+                </div>
+              </div>
+              <div class="summary" aria-label="Summary statistics">
+                <span>Low <strong>{{ "%.1f"|format(chart.minimum) }}</strong></span>
+                <span>Average <strong>{{ "%.1f"|format(chart.average) }}</strong></span>
+                <span>High <strong>{{ "%.1f"|format(chart.maximum) }}</strong></span>
+              </div>
+              <div class="plot">
+                <svg viewBox="0 0 1000 250" role="img" aria-label="{{ chart.label }} from {{ start }} to {{ end }}">
+                  <line x1="52" y1="18" x2="52" y2="222" class="axis"></line>
+                  <line x1="52" y1="222" x2="978" y2="222" class="axis"></line>
+                  <line x1="52" y1="120" x2="978" y2="120" class="gridline"></line>
+                  {% for series in chart.series %}
+                    <polyline points="{{ series.points }}" fill="none" stroke="{{ series.color }}" stroke-width="2.5" vector-effect="non-scaling-stroke"></polyline>
+                  {% endfor %}
+                </svg>
+                <div class="plot__labels"><span>{{ start }}</span><span>{{ end }}</span></div>
+              </div>
+              <div class="legend">
+                {% for series in chart.series %}
+                  <span><i style="background: {{ series.color }}"></i>{{ series.label }} · {{ series.count }} days</span>
+                {% endfor %}
+              </div>
+            </article>
+          {% endfor %}
+        </section>
+      {% else %}
+        <section class="empty-state empty-state--small">
+          <h2>No observations match these filters</h2>
+          <p>Try a wider date range or another weather measure.</p>
+        </section>
+      {% endif %}
+    {% endif %}
+  </main>
+
+  <footer>Environment and Climate Change Canada · Neighbourhood-scale view</footer>
+</body>
+</html>

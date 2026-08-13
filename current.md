@@ -29,10 +29,15 @@ Data gathering must run every six hours.
   private CSV output for local inspection.
 - Added four focused tests for duplicate refreshes, blank placeholder days,
   failed ingestion metadata, and Riverdale-to-airport fallback.
+- Added a responsive, read-only Flask dashboard with server-rendered SVG charts
+  and linkable date-range, station, and metric filters. The default view shows
+  the latest year of high, low, and mean temperature.
+- Added dashboard tests for empty, single-series, multiple-metric, and precise
+  location privacy states. See ADR 0004 for the rendering decision.
 
 Generated CSV files under `yukon_weather/` are local verification output and
 are intentionally ignored by Git. The private SQLite database is ignored too.
-There is no dashboard, scheduler, or deployment configuration yet.
+There is no authentication, scheduler, or deployment configuration yet.
 
 The sanitized history is published in the public `maphew/K-Weather` GitHub
 repository. The imported private handoff history was intentionally excluded.
@@ -40,24 +45,27 @@ repository. The imported private handoff history was intentionally excluded.
 
 ## Next job
 
-Build the read-only dashboard against SQLite:
+Add the protected operational boundary:
 
-1. Show a useful default overview for Riverdale, Whitehorse.
-2. Add date-range, station/source, and metric filters.
-3. Query normalized observations without exposing official coordinates or any
-   private household identifiers.
-4. Test empty, single-series, and multiple-metric states.
+1. Require application-level authentication configured only through secrets.
+2. Add an authenticated, idempotent refresh endpoint or command that updates
+   ECCC data without re-fetching every historical year.
+3. Record refresh freshness and failures visibly without exposing internals.
+4. Test unauthorized access, refresh retries, and concurrent requests.
 
-Authentication and the protected six-hour refresh endpoint follow after the
-read-only dashboard works locally.
+After this boundary is tested, deploy to Sprites.dev and configure the external
+six-hour trigger.
 
 ## Verification
 
-- `python -m unittest -v`: 4 tests passed.
+- `python -m unittest -v`: 8 tests passed.
 - Live ECCC import: 2,401 daily rows became 14,066 normalized observations
   spanning 2020-01-01 through 2026-08-11.
 - Reimporting all 2,401 rows left the observation count at 14,066, confirming
   idempotency on real data.
+- Browser exercise on real data: default view rendered three charts; submitting
+  a mean-temperature/date filter produced one chart and preserved all filters
+  in the URL. The inspected desktop screenshot had no clipping or layout defects.
 
 ## Time-sensitive manual action
 

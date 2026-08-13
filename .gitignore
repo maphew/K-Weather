@@ -7,5 +7,6 @@ yukon_weather/
 .env
 .env.*
 !.env.example
+.amp/
 __pycache__/
 .venv/

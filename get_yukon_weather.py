@@ -22,11 +22,12 @@ The ECCC bulk endpoint:
         &timeframe=2&submit=Download+Data
     timeframe: 1=hourly, 2=daily, 3=monthly
 """
+
 from __future__ import annotations
 
 import sys
 import time
-from datetime import date
+from datetime import datetime, timezone
 from io import StringIO
 from pathlib import Path
 
@@ -41,13 +42,13 @@ BASE_URL = "https://climate.weather.gc.ca/climate_data/bulk_data_e.html"
 # Verify any of these at:
 #   https://climate.weather.gc.ca/historical_data/search_historic_data_e.html
 STATIONS: dict[str, int] = {
-    "riverdale":     1618,   # WHITEHORSE RIVERDALE  (Climate ID 2101400)
+    "riverdale": 1618,  # WHITEHORSE RIVERDALE  (Climate ID 2101400)
     "whitehorse_a_legacy": 1617,  # WHITEHORSE A      (legacy airport ID)
-    "whitehorse_a": 50842,   # WHITEHORSE A           (current airport station)
+    "whitehorse_a": 50842,  # WHITEHORSE A           (current airport station)
 }
 
 START_YEAR = 2020
-END_YEAR = date.today().year  # inclusive; partial OK for current year
+END_YEAR = datetime.now(timezone.utc).year  # inclusive; partial OK for current year
 
 OUTDIR = Path("yukon_weather")
 DATABASE = OUTDIR / "k-weather.sqlite3"
@@ -69,16 +70,17 @@ OBSERVATION_COLUMNS = (
 
 # ---------------------------------------------------------------------------
 
+
 def fetch_year(station_id: int, year: int) -> pd.DataFrame:
     """Fetch one year of daily data. Returns empty DataFrame on no data."""
     params = {
-        "format":    "csv",
+        "format": "csv",
         "stationID": station_id,
-        "Year":      year,
-        "Month":     1,
-        "Day":       1,
+        "Year": year,
+        "Month": 1,
+        "Day": 1,
         "timeframe": 2,  # daily
-        "submit":    "Download Data",
+        "submit": "Download Data",
     }
     r = requests.get(BASE_URL, params=params, timeout=60)
     r.raise_for_status()
@@ -102,7 +104,7 @@ def pull_station(name: str, station_id: int) -> pd.DataFrame:
     for y in range(START_YEAR, END_YEAR + 1):
         try:
             df = fetch_year(station_id, y)
-        except Exception as e:
+        except (requests.RequestException, pd.errors.ParserError) as e:
             print(f"  {y}: FAILED  {e}", flush=True)
             time.sleep(SLEEP_SEC)
             continue
@@ -118,7 +120,11 @@ def pull_station(name: str, station_id: int) -> pd.DataFrame:
 def merge_preferring_riverdale(per_station: dict[str, pd.DataFrame]) -> pd.DataFrame:
     """Build a daily series, preferring Riverdale then current/legacy airport."""
     order = ["riverdale", "whitehorse_a", "whitehorse_a_legacy"]
-    frames = [per_station[k].assign(_source=k) for k in order if not per_station.get(k, pd.DataFrame()).empty]
+    frames = [
+        per_station[k].assign(_source=k)
+        for k in order
+        if not per_station.get(k, pd.DataFrame()).empty
+    ]
     if not frames:
         return pd.DataFrame()
     merged = pd.concat(frames, ignore_index=True)
@@ -128,8 +134,12 @@ def merge_preferring_riverdale(per_station: dict[str, pd.DataFrame]) -> pd.DataF
     # Source priority: lower index in `order` = higher priority
     priority = {k: i for i, k in enumerate(order)}
     merged["_prio"] = merged["_source"].map(priority)
-    merged = merged.sort_values(["Date/Time", "_prio"]).drop_duplicates(subset=["Date/Time"], keep="first")
-    merged = merged.drop(columns=["_prio"]).sort_values("Date/Time").reset_index(drop=True)
+    merged = merged.sort_values(["Date/Time", "_prio"]).drop_duplicates(
+        subset=["Date/Time"], keep="first"
+    )
+    merged = (
+        merged.drop(columns=["_prio"]).sort_values("Date/Time").reset_index(drop=True)
+    )
     return merged
 
 
@@ -167,8 +177,11 @@ def main() -> int:
         print("Source breakdown:")
         print(merged["_source"].value_counts().to_string())
     else:
-        print("\nNo data retrieved from any station. "
-              "Check the station IDs at climate.weather.gc.ca.", file=sys.stderr)
+        print(
+            "\nNo data retrieved from any station. "
+            "Check the station IDs at climate.weather.gc.ca.",
+            file=sys.stderr,
+        )
         return 1
     return 0
 

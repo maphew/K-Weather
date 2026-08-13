@@ -4,11 +4,11 @@ from __future__ import annotations
 
 import math
 import sqlite3
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Iterable, Mapping
-
+from typing import Any
 
 ECCC_METRICS = {
     "Max Temp (°C)": ("maximum_temperature", "°C", "Max Temp Flag"),

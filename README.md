@@ -26,8 +26,20 @@ runtime data and intentionally ignored by Git.
 Run the focused persistence tests with:
 
 ```bash
-uv run --with pandas --with requests python -m unittest -v
+uv run --with flask --with pandas --with requests python -m unittest -v
 ```
+
+## Run the dashboard
+
+After importing observations, start the local dashboard on port 8080:
+
+```bash
+uv run app.py
+```
+
+Set `K_WEATHER_DB` to use a database outside the default
+`yukon_weather/k-weather.sqlite3` path. The dashboard opens SQLite in read-only
+mode and supports linkable date, station, and metric filters.
 
 Read `current.md` first when resuming development. See `AGENTS.md` for source
 details and project conventions, and `ADR/` for durable decision history.
