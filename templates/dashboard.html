@@ -73,8 +73,8 @@
           <label>To <input type="date" name="end" min="{{ options.first_date }}" max="{{ options.last_date }}" value="{{ end }}"></label>
         </div>
         <div class="range-controls" data-date-range>
-          <label>From slider <input type="range" data-range-start aria-label="History start date slider"></label>
-          <label>To slider <input type="range" data-range-end aria-label="History end date slider"></label>
+          <label><span>Start <output data-range-start-output>{{ start }}</output></span><input type="range" data-range-start aria-label="History start date slider"></label>
+          <label><span>End <output data-range-end-output>{{ end }}</output></span><input type="range" data-range-end aria-label="History end date slider"></label>
         </div>
 
         <fieldset>

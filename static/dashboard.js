@@ -6,6 +6,8 @@
 
   const startRange = controls.querySelector("[data-range-start]");
   const endRange = controls.querySelector("[data-range-end]");
+  const startOutput = controls.querySelector("[data-range-start-output]");
+  const endOutput = controls.querySelector("[data-range-end-output]");
   const dayMilliseconds = 24 * 60 * 60 * 1000;
   const minimum = Date.parse(`${startDate.min}T00:00:00Z`);
   const maximum = Date.parse(`${startDate.max}T00:00:00Z`);
@@ -26,6 +28,8 @@
   const updateRangeLimits = () => {
     startRange.max = endRange.value;
     endRange.min = startRange.value;
+    startOutput.value = startDate.value;
+    endOutput.value = endDate.value;
   };
   const updateSliders = () => {
     if (startDate.validity.valid) startRange.value = offset(startDate.value);
