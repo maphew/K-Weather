@@ -41,5 +41,17 @@ Set `K_WEATHER_DB` to use a database outside the default
 `yukon_weather/k-weather.sqlite3` path. The dashboard opens SQLite in read-only
 mode and supports linkable date, station, and metric filters.
 
+The deployed app requires `K_WEATHER_USERNAME` and `K_WEATHER_PASSWORD`; it
+returns an error rather than opening the dashboard when they are absent.
+`POST /refresh` accepts only the signed, short-lived GitHub Actions OIDC token
+from this repository's refresh workflow. An optional local
+`K_WEATHER_REFRESH_TOKEN` can be used for manual testing but is not needed in
+production. See `.env.example` for variable names—never commit real values.
+
+The refresh workflow runs at minute 17 every six hours. It downloads only the
+current year (plus the previous year during January), safely upserts repeated
+observations, and wakes the Sprite through its public URL. The dashboard itself
+remains protected by application authentication.
+
 Read `current.md` first when resuming development. See `AGENTS.md` for source
 details and project conventions, and `ADR/` for durable decision history.

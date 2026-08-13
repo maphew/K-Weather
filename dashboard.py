@@ -72,6 +72,22 @@ class DashboardOptions:
     metrics: tuple[MetricOption, ...]
 
 
+@dataclass(frozen=True)
+class RefreshStatus:
+    completed_at: str | None
+    failed_at: str | None
+
+
+def load_refresh_status(connection: sqlite3.Connection) -> RefreshStatus:
+    completed = connection.execute(
+        "SELECT max(completed_at) FROM refresh_runs WHERE status = 'completed'"
+    ).fetchone()[0]
+    failed = connection.execute(
+        "SELECT max(completed_at) FROM refresh_runs WHERE status = 'failed'"
+    ).fetchone()[0]
+    return RefreshStatus(completed_at=completed, failed_at=failed)
+
+
 def load_options(connection: sqlite3.Connection) -> DashboardOptions:
     bounds = connection.execute(
         "SELECT min(observed_at), max(observed_at) FROM observations"

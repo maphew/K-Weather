@@ -14,6 +14,9 @@
       <p class="lede">A clear view of weather patterns close to home.</p>
       {% if options and options.last_date %}
         <p class="freshness"><span></span> Daily observations through {{ options.last_date }}</p>
+        {% if refresh_status and refresh_status.failed_at and (not refresh_status.completed_at or refresh_status.failed_at > refresh_status.completed_at) %}
+          <p class="refresh-warning">The latest refresh failed. Existing observations remain available.</p>
+        {% endif %}
       {% endif %}
     </div>
   </header>

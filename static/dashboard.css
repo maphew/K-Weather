@@ -56,6 +56,7 @@ h1 { margin: 0; font-family: Georgia, serif; font-size: clamp(3.4rem, 10vw, 6.8r
 .lede { max-width: 32rem; margin: .7rem 0 1.7rem; color: #dce9e2; font-family: Georgia, serif; font-size: clamp(1.15rem, 2.5vw, 1.55rem); }
 .freshness { display: flex; align-items: center; gap: .55rem; margin: 0; color: #e6eee9; font-size: .86rem; }
 .freshness span { width: .55rem; height: .55rem; border-radius: 50%; background: var(--sun); box-shadow: 0 0 0 .25rem rgba(229, 169, 79, .18); }
+.refresh-warning { display: inline-block; margin: .8rem 0 0; padding: .45rem .65rem; border-radius: .35rem; color: #402a16; background: #f4cf91; font-size: .78rem; }
 
 main { padding: 2rem 0 4rem; }
 

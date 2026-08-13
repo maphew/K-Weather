@@ -1,0 +1,28 @@
+name: Refresh weather data
+
+on:
+  schedule:
+    - cron: "17 */6 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger protected refresh
+        env:
+          K_WEATHER_REFRESH_URL: https://k-weather-m4xy.sprites.app
+        run: |
+          oidc_response=$(curl --fail-with-body --retry 3 --retry-all-errors \
+            -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+            "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=k-weather-refresh")
+          oidc_token=$(jq -er .value <<<"$oidc_response")
+          curl --fail-with-body --retry 3 --retry-all-errors \
+            --max-time 300 \
+            -X POST \
+            -H "Authorization: Bearer $oidc_token" \
+            "$K_WEATHER_REFRESH_URL/refresh"

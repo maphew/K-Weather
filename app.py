@@ -10,11 +10,23 @@ from __future__ import annotations
 import os
 import sqlite3
 from datetime import date
+from functools import wraps
+from hmac import compare_digest
 from pathlib import Path
+from threading import Lock
 
-from flask import Flask, render_template, request
+from flask import Flask, Response, jsonify, render_template, request
 
-from dashboard import DEFAULT_METRICS, default_start, load_charts, load_options
+from auth import github_actions_refresh_token_valid
+from dashboard import (
+    DEFAULT_METRICS,
+    default_start,
+    load_charts,
+    load_options,
+    load_refresh_status,
+)
+from refresh import refresh_eccc
+from weather_store import connect_database
 
 DEFAULT_DATABASE = Path("yukon_weather/k-weather.sqlite3")
 
@@ -28,13 +40,76 @@ def valid_date(value: str | None, fallback: str) -> str:
     return fallback
 
 
-def create_app(database_path: str | Path | None = None) -> Flask:
+def create_app(
+    database_path: str | Path | None = None,
+    *,
+    username: str | None = None,
+    password: str | None = None,
+    refresh_token: str | None = None,
+    refresh_token_verifier=github_actions_refresh_token_valid,
+    refresher=refresh_eccc,
+) -> Flask:
     app = Flask(__name__)
     app.config["DATABASE"] = str(
         database_path or os.environ.get("K_WEATHER_DB", DEFAULT_DATABASE)
     )
+    app.config["AUTH_USERNAME"] = username or os.environ.get("K_WEATHER_USERNAME")
+    app.config["AUTH_PASSWORD"] = password or os.environ.get("K_WEATHER_PASSWORD")
+    app.config["REFRESH_TOKEN"] = refresh_token or os.environ.get(
+        "K_WEATHER_REFRESH_TOKEN"
+    )
+    database = connect_database(app.config["DATABASE"])
+    database.close()
+    refresh_lock = Lock()
+
+    def configured() -> bool:
+        return bool(app.config["AUTH_USERNAME"] and app.config["AUTH_PASSWORD"])
+
+    def dashboard_authenticated() -> bool:
+        authorization = request.authorization
+        return bool(
+            authorization
+            and authorization.type == "basic"
+            and compare_digest(
+                authorization.username or "", app.config["AUTH_USERNAME"] or ""
+            )
+            and compare_digest(
+                authorization.password or "", app.config["AUTH_PASSWORD"] or ""
+            )
+        )
+
+    def require_dashboard_auth(view):
+        @wraps(view)
+        def wrapped(*args, **kwargs):
+            if not configured():
+                return Response("K-Weather authentication is not configured\n", 503)
+            if not dashboard_authenticated():
+                return Response(
+                    "Authentication required\n",
+                    401,
+                    {"WWW-Authenticate": 'Basic realm="K-Weather"'},
+                )
+            return view(*args, **kwargs)
+
+        return wrapped
+
+    @app.after_request
+    def security_headers(response):
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["X-Frame-Options"] = "DENY"
+        response.headers["Referrer-Policy"] = "no-referrer"
+        if request.endpoint == "dashboard":
+            response.headers["Cache-Control"] = "private, no-store"
+        return response
+
+    @app.get("/health")
+    def health():
+        return jsonify(status="ok" if configured() else "misconfigured"), (
+            200 if configured() else 503
+        )
 
     @app.get("/")
+    @require_dashboard_auth
     def dashboard():
         path = Path(app.config["DATABASE"])
         if not path.exists():
@@ -79,6 +154,7 @@ def create_app(database_path: str | Path | None = None) -> Flask:
                 "dashboard.html",
                 options=options,
                 charts=charts,
+                refresh_status=load_refresh_status(database),
                 start=start,
                 end=end,
                 selected_stations=selected_stations,
@@ -86,6 +162,38 @@ def create_app(database_path: str | Path | None = None) -> Flask:
             )
         finally:
             database.close()
+
+    @app.post("/refresh")
+    def refresh():
+        if not configured():
+            return jsonify(error="service is not configured"), 503
+        supplied = request.headers.get("Authorization", "")
+        token = (
+            supplied.removeprefix("Bearer ") if supplied.startswith("Bearer ") else ""
+        )
+        static_token = app.config["REFRESH_TOKEN"]
+        valid_static_token = bool(static_token and compare_digest(token, static_token))
+        if not valid_static_token and not refresh_token_verifier(token):
+            return jsonify(error="unauthorized"), 401
+        if not refresh_lock.acquire(blocking=False):
+            return jsonify(error="refresh already running"), 409
+        try:
+            database = connect_database(app.config["DATABASE"])
+            try:
+                results = refresher(database)
+            finally:
+                database.close()
+            return jsonify(
+                status="completed",
+                stations=len(results),
+                rows=sum(result.rows_received for result in results),
+                observations=sum(result.observations_written for result in results),
+            )
+        except Exception:
+            app.logger.exception("weather refresh failed")
+            return jsonify(error="refresh failed"), 502
+        finally:
+            refresh_lock.release()
 
     return app
 

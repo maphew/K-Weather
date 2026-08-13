@@ -71,6 +71,16 @@ CREATE TABLE IF NOT EXISTS ingestion_runs (
     error TEXT,
     FOREIGN KEY (source, station_key) REFERENCES stations (source, station_key)
 );
+
+CREATE TABLE IF NOT EXISTS refresh_runs (
+    id INTEGER PRIMARY KEY,
+    started_at TEXT NOT NULL,
+    completed_at TEXT,
+    status TEXT NOT NULL CHECK (status IN ('running', 'completed', 'failed')),
+    stations INTEGER NOT NULL DEFAULT 0,
+    observations_written INTEGER NOT NULL DEFAULT 0,
+    error TEXT
+);
 """
 
 

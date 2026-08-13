@@ -1,9 +1,12 @@
 import tempfile
 import unittest
+from base64 import b64encode
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
+from threading import Event
 
 from app import create_app
-from weather_store import connect_database, ingest_eccc_daily
+from weather_store import IngestionResult, connect_database, ingest_eccc_daily
 
 
 class DashboardTest(unittest.TestCase):
@@ -15,9 +18,18 @@ class DashboardTest(unittest.TestCase):
         self.temporary_directory.cleanup()
 
     def client(self):
-        application = create_app(self.database_path)
+        application = create_app(
+            self.database_path,
+            username="family",
+            password="correct horse battery staple",
+            refresh_token="refresh-secret",
+        )
         application.config["TESTING"] = True
         return application.test_client()
+
+    def auth_header(self) -> dict[str, str]:
+        credentials = b64encode(b"family:correct horse battery staple").decode()
+        return {"Authorization": f"Basic {credentials}"}
 
     def add_rows(self, rows) -> None:
         database = connect_database(self.database_path)
@@ -30,7 +42,7 @@ class DashboardTest(unittest.TestCase):
         database.close()
 
     def test_empty_database_state(self) -> None:
-        response = self.client().get("/")
+        response = self.client().get("/", headers=self.auth_header())
 
         self.assertEqual(response.status_code, 200)
         self.assertIn(b"No weather data yet", response.data)
@@ -52,7 +64,9 @@ class DashboardTest(unittest.TestCase):
             ]
         )
 
-        response = self.client().get("/?metric=mean_temperature")
+        response = self.client().get(
+            "/?metric=mean_temperature", headers=self.auth_header()
+        )
 
         self.assertEqual(response.status_code, 200)
         self.assertIn(b"Daily mean", response.data)
@@ -74,7 +88,8 @@ class DashboardTest(unittest.TestCase):
 
         response = self.client().get(
             "/?metric=maximum_temperature&metric=precipitation"
-            "&start=2026-08-11&end=2026-08-11"
+            "&start=2026-08-11&end=2026-08-11",
+            headers=self.auth_header(),
         )
 
         self.assertEqual(response.status_code, 200)
@@ -100,12 +115,56 @@ class DashboardTest(unittest.TestCase):
             ]
         )
 
-        response = self.client().get("/")
+        response = self.client().get("/", headers=self.auth_header())
 
         self.assertIn(b"Riverdale", response.data)
         self.assertNotIn(b"-123.456", response.data)
         self.assertNotIn(b"54.321", response.data)
         self.assertNotIn(b"SYNTHETIC-STATION", response.data)
+
+    def test_dashboard_requires_authentication(self) -> None:
+        response = self.client().get("/")
+
+        self.assertEqual(response.status_code, 401)
+        self.assertEqual(
+            response.headers["WWW-Authenticate"], 'Basic realm="K-Weather"'
+        )
+
+    def test_refresh_requires_bearer_token(self) -> None:
+        response = self.client().post("/refresh")
+
+        self.assertEqual(response.status_code, 401)
+
+    def test_refresh_rejects_concurrent_request(self) -> None:
+        entered = Event()
+        release = Event()
+
+        def blocking_refresher(_database):
+            entered.set()
+            release.wait(timeout=5)
+            return (IngestionResult(1, 1, 1),)
+
+        application = create_app(
+            self.database_path,
+            username="family",
+            password="password",
+            refresh_token=None,
+            refresh_token_verifier=lambda token: token == "valid-oidc-token",
+            refresher=blocking_refresher,
+        )
+        application.config["TESTING"] = True
+        headers = {"Authorization": "Bearer valid-oidc-token"}
+        with ThreadPoolExecutor(max_workers=1) as executor:
+            first = executor.submit(
+                lambda: application.test_client().post("/refresh", headers=headers)
+            )
+            self.assertTrue(entered.wait(timeout=2))
+            second = application.test_client().post("/refresh", headers=headers)
+            release.set()
+            first_response = first.result(timeout=2)
+
+        self.assertEqual(second.status_code, 409)
+        self.assertEqual(first_response.status_code, 200)
 
 
 if __name__ == "__main__":
