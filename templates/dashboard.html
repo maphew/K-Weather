@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>K-Weather · Riverdale</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='dashboard.css') }}">
+  <script src="{{ url_for('static', filename='dashboard.js') }}" defer></script>
 </head>
 <body>
   <header class="hero">
@@ -63,9 +64,17 @@
       {% endif %}
 
       <form class="filters" method="get" aria-label="Weather filters">
+        <div class="filters__heading">
+          <p class="eyebrow">History range</p>
+          <p>Applies to every selected weather source</p>
+        </div>
         <div class="filters__dates">
           <label>From <input type="date" name="start" min="{{ options.first_date }}" max="{{ options.last_date }}" value="{{ start }}"></label>
           <label>To <input type="date" name="end" min="{{ options.first_date }}" max="{{ options.last_date }}" value="{{ end }}"></label>
+        </div>
+        <div class="range-controls" data-date-range>
+          <label>From slider <input type="range" data-range-start aria-label="History start date slider"></label>
+          <label>To slider <input type="range" data-range-end aria-label="History end date slider"></label>
         </div>
 
         <fieldset>
@@ -121,6 +130,11 @@
                   <line x1="52" y1="120" x2="978" y2="120" class="gridline"></line>
                   {% for series in chart.series %}
                     <polyline points="{{ series.points }}" fill="none" stroke="{{ series.color }}" stroke-width="2.5" vector-effect="non-scaling-stroke"></polyline>
+                    {% if series.count <= 24 %}
+                      {% for x, y in series.coordinates %}
+                        <circle cx="{{ x }}" cy="{{ y }}" r="{% if series.count == 1 %}5{% else %}2.5{% endif %}" fill="{{ series.color }}" vector-effect="non-scaling-stroke"></circle>
+                      {% endfor %}
+                    {% endif %}
                   {% endfor %}
                 </svg>
                 <div class="plot__labels"><span>{{ start }}</span><span>{{ end }}</span></div>

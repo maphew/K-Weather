@@ -82,6 +82,10 @@ Data gathering must run every six hours.
   reports an older check-in than the two current auxiliary sensors.
 - Added a tooltip to the stale indicator explaining that it means MyAcuRite has
   not reported a new reading for more than 12 hours.
+- Added synchronized From/To sliders for the historical range while preserving
+  editable dates and no-JavaScript GET behavior. The shared range applies to
+  every selected source; AcuRite temperature is now in the default history and
+  sparse household samples render as visible points. See ADR 0008.
 
 Generated CSV files under `yukon_weather/` are local verification output and
 are intentionally ignored by Git. The private SQLite database is ignored too.
@@ -116,7 +120,7 @@ database and service environment.
 
 ## Verification
 
-- `python -m unittest -v`: 30 tests passed, including MyAcuRite login/session
+- `python -m unittest -v`: 31 tests passed, including MyAcuRite login/session
   retry, schema validation, null readings, timestamp/unit normalization,
   privacy-safe failures, idempotent snapshots, sub-daily dashboard filtering,
   form login sessions, OIDC claims, refresh failure recording, and concurrency.

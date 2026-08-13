@@ -148,6 +148,31 @@ class DashboardTest(unittest.TestCase):
         self.assertIn(b"Riverdale household station \xc2\xb7 AcuRite", response.data)
         self.assertIn(b"62.5 \xc2\xb0F", response.data)
         self.assertIn(b"1 observations", response.data)
+        self.assertIn(b"<circle", response.data)
+
+    def test_history_date_range_applies_to_acurite_observations(self) -> None:
+        database = connect_database(self.database_path)
+        for observed_at, value in (
+            ("2026-08-12T12:00:00+00:00", 20),
+            ("2026-08-13T12:00:00+00:00", 21),
+        ):
+            ingest_myacurite_snapshot(
+                database,
+                station_name="AcuRite Iris",
+                observed_at=observed_at,
+                readings=(SensorReading("temperature", value, "°C"),),
+            )
+        database.close()
+
+        response = self.client().get(
+            "/?metric=temperature&start=2026-08-13&end=2026-08-13",
+            headers=self.auth_header(),
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(b"21.0 \xc2\xb0C", response.data)
+        self.assertIn(b"1 observations", response.data)
+        self.assertNotIn(b"20.0 \xc2\xb0C", response.data)
 
     def test_current_conditions_show_all_household_sensors_and_wind_direction(
         self,

@@ -66,6 +66,10 @@ Iris and every linked auxiliary sensor, including temperature, humidity, dew
 point, pressure, wind, feels-like temperature, and rainfall when available.
 Historical filters and charts remain below it. See ADR 0007.
 
+The historical range applies to every selected source. Synchronized From/To
+sliders support quick exploration while editable date fields retain precise,
+linkable dates and work without JavaScript. See ADR 0008.
+
 Do not paste MyAcuRite credentials or account-linked IDs into chat, Git, logs,
 or issue trackers. The application privately discovers the account and hub IDs
 after login and retains them only in memory. Omitting both variables safely

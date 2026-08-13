@@ -38,6 +38,7 @@ DEFAULT_METRICS = (
     "maximum_temperature",
     "minimum_temperature",
     "mean_temperature",
+    "temperature",
 )
 
 COLORS = ("#d95d39", "#277da1", "#4d908e", "#9c6644", "#7b2cbf")
@@ -61,6 +62,7 @@ class ChartSeries:
     label: str
     color: str
     points: str
+    coordinates: tuple[tuple[float, float], ...]
     count: int
 
 
@@ -371,6 +373,10 @@ def load_charts(
                     label=station_label,
                     color=COLORS[index % len(COLORS)],
                     points=" ".join(coordinates),
+                    coordinates=tuple(
+                        tuple(float(number) for number in coordinate.split(","))
+                        for coordinate in coordinates
+                    ),
                     count=len(points),
                 )
             )

@@ -100,8 +100,13 @@ main { padding: 2rem 0 4rem; }
 }
 
 .filters__dates { display: flex; gap: 1rem; flex-wrap: wrap; }
+.filters__heading p { margin: 0; }
+.filters__heading p:last-child { color: var(--muted); font-size: .74rem; }
 .filters label, legend { font-size: .82rem; font-weight: 700; }
 input[type="date"] { display: block; margin-top: .35rem; padding: .65rem .75rem; border: 1px solid var(--line); border-radius: .55rem; color: var(--ink); background: white; font: inherit; }
+.range-controls { display: grid; gap: .65rem; }
+.range-controls label { display: grid; grid-template-columns: 5rem 1fr; align-items: center; gap: .7rem; color: var(--muted); font-size: .72rem; }
+input[type="range"] { width: 100%; accent-color: var(--pine); cursor: pointer; }
 fieldset { margin: 0; padding: 0; border: 0; }
 legend { margin-bottom: .55rem; }
 .choice-grid { display: flex; flex-wrap: wrap; gap: .45rem; }
@@ -155,10 +160,12 @@ footer { padding: 1.5rem 0 2.5rem; color: var(--muted); border-top: 1px solid va
   .station-grid { grid-template-columns: repeat(2, 1fr); }
   .station-card--home .reading-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .filters { grid-template-columns: auto 1fr auto; align-items: end; }
-  .filters__dates { grid-column: 1; }
-  .filters fieldset:first-of-type { grid-column: 2; }
+  .filters__heading { grid-column: 1; }
+  .filters__dates { grid-column: 2; }
+  .range-controls { grid-column: 1 / 3; }
+  .filters fieldset:first-of-type { grid-column: 1 / 3; }
   .filters fieldset:last-of-type { grid-column: 1 / 3; }
-  .filters button { grid-column: 3; grid-row: 1 / 3; align-self: end; }
+  .filters button { grid-column: 3; grid-row: 1 / 5; align-self: end; }
 }
 
 @media (max-width: 560px) {
