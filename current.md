@@ -44,7 +44,7 @@ Data gathering must run every six hours.
   no long-lived scheduler secret exists. See ADR 0005.
 - Deployed production to Sprites.dev with one Gunicorn worker, persistent
   SQLite storage, a restart-on-wake Sprite Service, and app authentication.
-- Created Sprite checkpoint `v1` after successful deployment.
+- Created Sprite checkpoint `v2` after deployment and credential rotation.
 
 Generated CSV files under `yukon_weather/` are local verification output and
 are intentionally ignored by Git. The private SQLite database is ignored too.
@@ -75,7 +75,7 @@ the real private export.
 - Service: `dashboard`, one Gunicorn worker on port 8080
 - Database: `/home/sprite/k-weather/yukon_weather/k-weather.sqlite3`
 - Schedule: `.github/workflows/refresh.yml`, `17 */6 * * *`
-- Checkpoint: `v1`
+- Checkpoint: `v2`
 
 For a code update: push `main`, run `sprite exec -- bash -lc 'cd
 /home/sprite/k-weather && git pull --ff-only && .venv/bin/pip install -r
@@ -96,10 +96,11 @@ database and service environment.
   in the URL. The inspected desktop screenshot had no clipping or layout defects.
 - Production returned `401` without dashboard credentials and `200` with them;
   a random refresh bearer token returned `401`.
-- GitHub Actions workflow run `31664609923` obtained an OIDC token and completed
-  the protected production refresh successfully.
+- GitHub Actions workflow runs `31664609923` and `31664825519` obtained OIDC
+  tokens and completed protected production refreshes successfully, including
+  after the final service recreation and credential rotation.
 - Production SQLite remained at 14,066 unique observations and recorded one
-  completed three-station refresh. The authenticated 390 px browser check
+  completed refresh per workflow run. The authenticated 390 px browser check
   rendered three charts with no horizontal overflow.
 
 ## Time-sensitive manual action
