@@ -106,6 +106,11 @@ Data gathering must run every six hours.
   station histories. Re-importing left the unique five-minute count at 98,095
   with no failed runs. The default now opens to the available 31-day household
   window while the range controls can still expand to the full ECCC archive.
+- Added encrypted, versioned off-site backups to a private Google Drive folder.
+  Each six-hour workflow now follows a successful refresh with a consistent
+  SQLite snapshot, Restic encryption and retention, repository check, test
+  restore, integrity check, and observation count/freshness comparison. See
+  ADR 0010. OAuth and encryption secrets remain in mode-0600 private files.
 
 Generated CSV files under `yukon_weather/` are local verification output and
 are intentionally ignored by Git. The private SQLite database is ignored too.
@@ -117,8 +122,10 @@ repository. The imported private handoff history was intentionally excluded.
 
 ## Next job
 
-After enough snapshots accumulate, consider household-vs-ECCC calibration
-comparisons. Direct Acuparse capture remains the fallback for finer detail.
+Add ongoing five-minute MyAcuRite cloud ingestion so each six-hour refresh gets
+all unseen summary readings, re-fetches the prior 48 hours, and upserts them
+idempotently. Also replace rclone's shared Google OAuth client ID before its
+announced 2026 retirement; current authorization works but is not durable.
 
 ## Production
 
@@ -136,7 +143,7 @@ database and service environment.
 
 ## Verification
 
-- `python -m unittest -v`: 37 tests passed, including MyAcuRite login/session
+- `python -m unittest -v`: 42 tests passed, including MyAcuRite login/session
   retry, schema validation, null readings, timestamp/unit normalization,
   privacy-safe failures, idempotent snapshots, sub-daily dashboard filtering,
   form login sessions, OIDC claims, refresh failure recording, and concurrency.
@@ -181,6 +188,10 @@ database and service environment.
   2026-07-14 through 2026-08-13. A second import left that unique count
   unchanged. The authenticated default chart loads in about 0.55 seconds,
   displays the full AcuRite counts, and has no horizontal overflow.
+- A synthetic Restic repository completed snapshot, retention/prune, repository
+  check, restore, SQLite integrity, row-count, and newest-timestamp validation.
+  Google Drive access was verified privately from the Sprite; the first real
+  production backup remains the deployment gate.
 
 ## Session rule
 

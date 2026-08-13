@@ -1,9 +1,11 @@
+import os
 import tempfile
 import unittest
 from base64 import b64encode
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from threading import Event
+from unittest.mock import patch
 
 from app import create_app
 from myacurite import SensorReading
@@ -337,6 +339,36 @@ class DashboardTest(unittest.TestCase):
         response = self.client().post("/refresh")
 
         self.assertEqual(response.status_code, 401)
+
+    def test_backup_requires_bearer_token(self) -> None:
+        response = self.client().post("/backup")
+
+        self.assertEqual(response.status_code, 401)
+
+    def test_backup_uses_shared_scheduler_authentication(self) -> None:
+        calls = []
+        application = create_app(
+            self.database_path,
+            username="family",
+            password="password",
+            secret_key="test-session-key",
+            refresh_token="refresh-secret",
+            backup_runner=calls.append,
+        )
+        application.config["TESTING"] = True
+        environment = {
+            "K_WEATHER_BACKUP_REPOSITORY": "rclone:test:repository",
+            "K_WEATHER_RESTIC_PASSWORD_FILE": "/private/password",
+            "RCLONE_CONFIG": "/private/rclone.conf",
+        }
+        with patch.dict(os.environ, environment, clear=False):
+            response = application.test_client().post(
+                "/backup", headers={"Authorization": "Bearer refresh-secret"}
+            )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(calls), 1)
+        self.assertEqual(calls[0].repository, "rclone:test:repository")
 
     def test_refresh_rejects_concurrent_request(self) -> None:
         entered = Event()

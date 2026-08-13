@@ -26,3 +26,8 @@ jobs:
             -X POST \
             -H "Authorization: Bearer $oidc_token" \
             "$K_WEATHER_REFRESH_URL/refresh"
+          curl --fail-with-body --retry 3 --retry-all-errors \
+            --max-time 300 \
+            -X POST \
+            -H "Authorization: Bearer $oidc_token" \
+            "$K_WEATHER_REFRESH_URL/backup"

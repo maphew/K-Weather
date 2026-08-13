@@ -18,6 +18,7 @@ from threading import Lock
 from flask import Flask, jsonify, redirect, render_template, request, session, url_for
 
 from auth import github_actions_refresh_token_valid
+from backup import BackupConfig, BackupError, backup_database
 from dashboard import (
     DEFAULT_METRICS,
     default_start,
@@ -50,6 +51,7 @@ def create_app(
     refresh_token: str | None = None,
     refresh_token_verifier=github_actions_refresh_token_valid,
     refresher=refresh_weather,
+    backup_runner=backup_database,
 ) -> Flask:
     app = Flask(__name__)
     app.config["DATABASE"] = str(
@@ -69,6 +71,7 @@ def create_app(
     database = connect_database(app.config["DATABASE"])
     database.close()
     refresh_lock = Lock()
+    backup_lock = Lock()
 
     def configured() -> bool:
         return bool(
@@ -102,6 +105,17 @@ def create_app(
             return view(*args, **kwargs)
 
         return wrapped
+
+    def scheduler_authenticated() -> bool:
+        supplied = request.headers.get("Authorization", "")
+        token = (
+            supplied.removeprefix("Bearer ") if supplied.startswith("Bearer ") else ""
+        )
+        static_token = app.config["REFRESH_TOKEN"]
+        return bool(
+            (static_token and compare_digest(token, static_token))
+            or refresh_token_verifier(token)
+        )
 
     @app.after_request
     def security_headers(response):
@@ -211,13 +225,7 @@ def create_app(
     def refresh():
         if not configured():
             return jsonify(error="service is not configured"), 503
-        supplied = request.headers.get("Authorization", "")
-        token = (
-            supplied.removeprefix("Bearer ") if supplied.startswith("Bearer ") else ""
-        )
-        static_token = app.config["REFRESH_TOKEN"]
-        valid_static_token = bool(static_token and compare_digest(token, static_token))
-        if not valid_static_token and not refresh_token_verifier(token):
+        if not scheduler_authenticated():
             return jsonify(error="unauthorized"), 401
         if not refresh_lock.acquire(blocking=False):
             return jsonify(error="refresh already running"), 409
@@ -238,6 +246,23 @@ def create_app(
             return jsonify(error="refresh failed"), 502
         finally:
             refresh_lock.release()
+
+    @app.post("/backup")
+    def backup():
+        if not configured():
+            return jsonify(error="service is not configured"), 503
+        if not scheduler_authenticated():
+            return jsonify(error="unauthorized"), 401
+        if not backup_lock.acquire(blocking=False):
+            return jsonify(error="backup already running"), 409
+        try:
+            backup_runner(BackupConfig.from_environment())
+            return jsonify(status="completed")
+        except BackupError:
+            app.logger.exception("encrypted backup failed")
+            return jsonify(error="backup failed"), 502
+        finally:
+            backup_lock.release()
 
     return app
 

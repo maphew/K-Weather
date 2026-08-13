@@ -55,6 +55,13 @@ current year (plus the previous year during January), safely upserts repeated
 observations, and wakes the Sprite through its public URL. The dashboard itself
 remains protected by application authentication.
 
+After a successful refresh, the workflow invokes a separate encrypted backup.
+`backup.py` uses SQLite's online backup API, sends only Restic-encrypted data to
+a private Google Drive folder through rclone, applies long-term retention,
+checks the repository, restores the latest snapshot, and verifies its SQLite
+integrity, observation count, and newest timestamp. OAuth configuration and the
+Restic password live only in private mode-0600 Sprite files. See ADR 0010.
+
 When `MYACURITE_EMAIL` and `MYACURITE_PASSWORD` are set in private environment
 configuration, the same refresh also captures the
 latest AcuRite Iris snapshot. The account ID and precise location returned by
