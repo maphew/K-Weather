@@ -86,6 +86,9 @@ Data gathering must run every six hours.
   editable dates and no-JavaScript GET behavior. The shared range applies to
   every selected source; AcuRite temperature is now in the default history and
   sparse household samples render as visible points. See ADR 0008.
+- Deployed and browser-tested bidirectional slider/date synchronization at
+  desktop and 390 px widths. Both ECCC and AcuRite charts responded to one
+  submitted range; inspected controls had no clipping or horizontal overflow.
 
 Generated CSV files under `yukon_weather/` are local verification output and
 are intentionally ignored by Git. The private SQLite database is ignored too.
@@ -111,7 +114,7 @@ Preserve the history that predates automated capture:
 - Service: `dashboard`, one Gunicorn worker on port 8080
 - Database: `/home/sprite/k-weather/yukon_weather/k-weather.sqlite3`
 - Schedule: `.github/workflows/refresh.yml`, `17 */6 * * *`
-- Checkpoint: `v6`
+- Checkpoint: `v7`
 
 For a code update: push `main`, run `sprite exec -- bash -lc 'cd
 /home/sprite/k-weather && git pull --ff-only && .venv/bin/pip install -r
