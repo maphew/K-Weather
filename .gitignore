@@ -1,0 +1,11 @@
+yukon_weather/
+*.csv
+*.db
+*.db-*
+*.sqlite
+*.sqlite3
+.env
+.env.*
+!.env.example
+__pycache__/
+.venv/
