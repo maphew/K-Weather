@@ -13,11 +13,11 @@ and duplicate scheduler requests can overlap during retries.
 
 ## Decision
 
-Protect the dashboard with HTTP Basic authentication over HTTPS, using a shared
-household username and generated password. Protect `POST /refresh` with a
-short-lived, cryptographically signed GitHub Actions OIDC token restricted to
-this repository, workflow, event type, and `main` branch. Configure the
-dashboard credential only through Sprite service environment.
+Protect the dashboard with an HTTPS login form, signed secure session cookie,
+shared household username, and generated password. Protect `POST /refresh`
+with a short-lived, cryptographically signed GitHub Actions OIDC token
+restricted to this repository, workflow, event type, and `main` branch.
+Configure the dashboard credential only through Sprite service environment.
 
 Run one Gunicorn worker and serialize refresh calls with a non-blocking process
 lock. Return `409` for overlap. Refresh only the current ECCC year, adding the
@@ -30,7 +30,8 @@ secret needs to exist in GitHub.
 
 ## Consequences
 
-- Browser access presents the standard username/password prompt.
+- Browser access uses a mobile-friendly sign-in form and password-manager
+  compatible fields.
 - The dashboard credential can be rotated without changing the scheduler.
 - A stolen workflow OIDC token expires quickly and cannot be issued by another
   repository or workflow.

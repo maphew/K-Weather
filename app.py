@@ -15,7 +15,7 @@ from hmac import compare_digest
 from pathlib import Path
 from threading import Lock
 
-from flask import Flask, Response, jsonify, render_template, request
+from flask import Flask, jsonify, redirect, render_template, request, session, url_for
 
 from auth import github_actions_refresh_token_valid
 from dashboard import (
@@ -45,6 +45,7 @@ def create_app(
     *,
     username: str | None = None,
     password: str | None = None,
+    secret_key: str | None = None,
     refresh_token: str | None = None,
     refresh_token_verifier=github_actions_refresh_token_valid,
     refresher=refresh_eccc,
@@ -55,6 +56,12 @@ def create_app(
     )
     app.config["AUTH_USERNAME"] = username or os.environ.get("K_WEATHER_USERNAME")
     app.config["AUTH_PASSWORD"] = password or os.environ.get("K_WEATHER_PASSWORD")
+    app.config["SECRET_KEY"] = secret_key or os.environ.get("K_WEATHER_SECRET_KEY")
+    app.config.update(
+        SESSION_COOKIE_HTTPONLY=True,
+        SESSION_COOKIE_SAMESITE="Lax",
+        SESSION_COOKIE_SECURE=not app.config["TESTING"],
+    )
     app.config["REFRESH_TOKEN"] = refresh_token or os.environ.get(
         "K_WEATHER_REFRESH_TOKEN"
     )
@@ -63,9 +70,15 @@ def create_app(
     refresh_lock = Lock()
 
     def configured() -> bool:
-        return bool(app.config["AUTH_USERNAME"] and app.config["AUTH_PASSWORD"])
+        return bool(
+            app.config["AUTH_USERNAME"]
+            and app.config["AUTH_PASSWORD"]
+            and app.config["SECRET_KEY"]
+        )
 
     def dashboard_authenticated() -> bool:
+        if session.get("authenticated") is True:
+            return True
         authorization = request.authorization
         return bool(
             authorization
@@ -82,13 +95,9 @@ def create_app(
         @wraps(view)
         def wrapped(*args, **kwargs):
             if not configured():
-                return Response("K-Weather authentication is not configured\n", 503)
+                return "K-Weather authentication is not configured\n", 503
             if not dashboard_authenticated():
-                return Response(
-                    "Authentication required\n",
-                    401,
-                    {"WWW-Authenticate": 'Basic realm="K-Weather"'},
-                )
+                return redirect(url_for("login"))
             return view(*args, **kwargs)
 
         return wrapped
@@ -101,6 +110,30 @@ def create_app(
         if request.endpoint == "dashboard":
             response.headers["Cache-Control"] = "private, no-store"
         return response
+
+    @app.route("/login", methods=("GET", "POST"))
+    def login():
+        if not configured():
+            return "K-Weather authentication is not configured\n", 503
+        error = None
+        if request.method == "POST":
+            valid_username = compare_digest(
+                request.form.get("username", ""), app.config["AUTH_USERNAME"]
+            )
+            valid_password = compare_digest(
+                request.form.get("password", ""), app.config["AUTH_PASSWORD"]
+            )
+            if valid_username and valid_password:
+                session.clear()
+                session["authenticated"] = True
+                return redirect(url_for("dashboard"))
+            error = "That username or password did not match."
+        return render_template("login.html", error=error)
+
+    @app.post("/logout")
+    def logout():
+        session.clear()
+        return redirect(url_for("login"))
 
     @app.get("/health")
     def health():

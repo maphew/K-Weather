@@ -111,6 +111,19 @@ h2 { margin: 0; font-family: Georgia, serif; font-size: clamp(1.65rem, 4vw, 2.25
 code { padding: .15rem .35rem; border-radius: .25rem; background: #e8ebe6; }
 
 footer { padding: 1.5rem 0 2.5rem; color: var(--muted); border-top: 1px solid var(--line); font-size: .72rem; }
+.logout { position: fixed; top: .8rem; right: .8rem; z-index: 5; }
+.logout button { padding: .45rem .7rem; color: #fff; background: rgba(15, 43, 35, .7); font-size: .72rem; }
+
+.login-page { min-height: 100vh; background: linear-gradient(145deg, #173f35, #70917a); }
+.login-shell { display: grid; min-height: 100vh; place-items: center; padding: 1rem; }
+.login-card { width: min(100%, 28rem); padding: 2rem; border-radius: 1rem; background: var(--card); box-shadow: 0 1.5rem 4rem rgba(8, 32, 25, .3); }
+.login-card h1 { font-size: clamp(3rem, 15vw, 5rem); }
+.login-card > p:not(.eyebrow, .login-error) { color: var(--muted); }
+.login-form { display: grid; gap: 1rem; margin-top: 1.5rem; }
+.login-form label { font-size: .82rem; font-weight: 700; }
+.login-form input { display: block; width: 100%; margin-top: .35rem; padding: .8rem; border: 1px solid var(--line); border-radius: .55rem; color: var(--ink); background: #fff; font: inherit; }
+.login-form button { width: 100%; margin-top: .25rem; }
+.login-error { padding: .6rem .7rem; border-radius: .4rem; color: #742a1f; background: #f9ddd7; font-size: .82rem; }
 
 @media (min-width: 760px) {
   .filters { grid-template-columns: auto 1fr auto; align-items: end; }

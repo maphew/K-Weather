@@ -34,8 +34,10 @@ Data gathering must run every six hours.
   the latest year of high, low, and mean temperature.
 - Added dashboard tests for empty, single-series, multiple-metric, and precise
   location privacy states. See ADR 0004 for the rendering decision.
-- Added secret-configured HTTP Basic authentication for the dashboard and
-  security headers that prevent caching, framing, and referrer leakage.
+- Added a mobile-friendly login form with secret-configured signed session
+  cookies and security headers that prevent caching, framing, and referrer
+  leakage. Browser-native Basic Auth remains available only as a compatibility
+  path for scripted checks.
 - Added an incremental single-writer refresh endpoint. It downloads only the
   current ECCC year (plus the previous year in January), records batch status,
   rejects overlapping requests, and shows only a generic failure notice.
@@ -84,8 +86,9 @@ database and service environment.
 
 ## Verification
 
-- `python -m unittest -v`: 16 tests passed, including OIDC claims,
-  unauthorized access, idempotent refresh, failure recording, and concurrency.
+- `python -m unittest -v`: 17 tests passed, including form login sessions, OIDC
+  claims, unauthorized access, idempotent refresh, failure recording, and
+  concurrency.
 - Ruff lint and formatting checks passed for all tracked Python.
 - Live ECCC import: 2,401 daily rows became 14,066 normalized observations
   spanning 2020-01-01 through 2026-08-11.

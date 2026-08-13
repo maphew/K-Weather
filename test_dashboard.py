@@ -22,6 +22,7 @@ class DashboardTest(unittest.TestCase):
             self.database_path,
             username="family",
             password="correct horse battery staple",
+            secret_key="test-session-key",
             refresh_token="refresh-secret",
         )
         application.config["TESTING"] = True
@@ -125,10 +126,28 @@ class DashboardTest(unittest.TestCase):
     def test_dashboard_requires_authentication(self) -> None:
         response = self.client().get("/")
 
-        self.assertEqual(response.status_code, 401)
-        self.assertEqual(
-            response.headers["WWW-Authenticate"], 'Basic realm="K-Weather"'
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.headers["Location"], "/login")
+
+    def test_mobile_friendly_login_session(self) -> None:
+        client = self.client()
+        rejected = client.post(
+            "/login",
+            data={"username": "family", "password": "wrong"},
+            base_url="https://localhost",
         )
+        accepted = client.post(
+            "/login",
+            data={"username": "family", "password": "correct horse battery staple"},
+            base_url="https://localhost",
+        )
+        dashboard = client.get("/", base_url="https://localhost")
+
+        self.assertIn(b"did not match", rejected.data)
+        self.assertEqual(accepted.status_code, 302)
+        self.assertEqual(accepted.headers["Location"], "/")
+        self.assertEqual(dashboard.status_code, 200)
+        self.assertIn(b"K-Weather", dashboard.data)
 
     def test_refresh_requires_bearer_token(self) -> None:
         response = self.client().post("/refresh")
@@ -148,6 +167,7 @@ class DashboardTest(unittest.TestCase):
             self.database_path,
             username="family",
             password="password",
+            secret_key="test-session-key",
             refresh_token=None,
             refresh_token_verifier=lambda token: token == "valid-oidc-token",
             refresher=blocking_refresher,

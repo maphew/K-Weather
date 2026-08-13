@@ -37,10 +37,10 @@ Two findings that shaped this:
   station, and metric filters. See ADR 0004.
 - `test_dashboard.py` covers empty, single-series, multi-metric, and location
   privacy states.
-- Dashboard access uses secret-configured HTTP Basic authentication. Scheduled
-  refresh uses a repository/workflow-bound GitHub Actions OIDC token; no static
-  scheduler credential is stored. Refresh is incremental, single-writer, and
-  recorded in `refresh_runs`. See ADR 0005.
+- Dashboard access uses a mobile-friendly login form and secret-configured
+  signed session cookie. Scheduled refresh uses a repository/workflow-bound
+  GitHub Actions OIDC token; no static scheduler credential is stored. Refresh
+  is incremental, single-writer, and recorded in `refresh_runs`. See ADR 0005.
 - `.github/workflows/refresh.yml` triggers refresh at minute 17 every six hours.
 
 ## Stations
