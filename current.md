@@ -66,6 +66,10 @@ Data gathering must run every six hours.
   responses: automatic discovery found one hub and the Iris returned nine
   usable readings in the expected metric units. The hardware Device ID is not
   needed and was removed from configuration.
+- Deployed the integration and private credentials to the Sprite, completed a
+  protected production refresh, and verified nine recent AcuRite observations
+  and the authenticated household dashboard without exposing coordinates.
+- Created Sprite checkpoint `v5` after production verification.
 
 Generated CSV files under `yukon_weather/` are local verification output and
 are intentionally ignored by Git. The private SQLite database is ignored too.
@@ -77,16 +81,12 @@ repository. The imported private handoff history was intentionally excluded.
 
 ## Next job
 
-The AcuRite integration and private local configuration are verified. Remaining
-deployment and historical-import work:
+The AcuRite integration is operational. The immediate next job is preserving
+the history that predates automated capture:
 
-1. Copy the configured `MYACURITE_EMAIL` and `MYACURITE_PASSWORD` into private
-   Sprite service configuration, never chat or Git.
-2. Run one protected refresh and verify that the actual sensor names, units,
-   and timestamp schema match the synthetic tests.
-3. Export and privately attach the current rolling 31-day MyAcuRite CSV before
+1. Export and privately attach the current rolling 31-day MyAcuRite CSV before
    older readings expire. Inspect its real schema, then add the importer.
-4. After enough snapshots accumulate, consider household-vs-ECCC calibration
+2. After enough snapshots accumulate, consider household-vs-ECCC calibration
    comparisons. Direct Acuparse capture remains the fallback for finer detail.
 
 ## Production
@@ -96,7 +96,7 @@ deployment and historical-import work:
 - Service: `dashboard`, one Gunicorn worker on port 8080
 - Database: `/home/sprite/k-weather/yukon_weather/k-weather.sqlite3`
 - Schedule: `.github/workflows/refresh.yml`, `17 */6 * * *`
-- Checkpoint: `v4`
+- Checkpoint: `v5`
 
 For a code update: push `main`, run `sprite exec -- bash -lc 'cd
 /home/sprite/k-weather && git pull --ff-only && .venv/bin/pip install -r
@@ -131,6 +131,15 @@ database and service environment.
 - The exact final credential artifact was parsed and submitted to the production
   form: login returned `302` to the dashboard and the resulting session loaded
   the dashboard with HTTP `200`.
+- Live MyAcuRite verification discovered one hub and selected the Iris
+  (`5in1WS`) from three devices. It returned nine usable readings: temperature,
+  humidity, wind speed/direction/average, feels-like temperature, dew point,
+  pressure, and rainfall, in the expected Canadian units.
+- GitHub Actions workflow run `31723254276` completed the first protected
+  production AcuRite refresh successfully. Production stored exactly nine
+  household observations with no external ID or coordinates; an authenticated
+  dashboard request rendered the AcuRite temperature chart and safe Riverdale
+  station label.
 
 ## Time-sensitive manual action
 
