@@ -44,7 +44,7 @@
                 <header>
                   <h3>{{ station.name }}</h3>
                   <div class="station-status">
-                    {% if station.stale %}<strong>Data may be stale</strong>{% endif %}
+                    {% if station.stale %}<strong title="MyAcuRite has not reported a new reading for more than 12 hours.">Data may be stale</strong>{% endif %}
                     <span>{{ station.updated_at }}</span>
                   </div>
                 </header>

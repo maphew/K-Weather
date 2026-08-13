@@ -80,6 +80,8 @@ Data gathering must run every six hours.
   readings. Desktop and 390 px browser checks found no clipped values or
   horizontal overflow. The dashboard flags the Iris as stale because MyAcuRite
   reports an older check-in than the two current auxiliary sensors.
+- Added a tooltip to the stale indicator explaining that it means MyAcuRite has
+  not reported a new reading for more than 12 hours.
 
 Generated CSV files under `yukon_weather/` are local verification output and
 are intentionally ignored by Git. The private SQLite database is ignored too.
@@ -114,7 +116,7 @@ database and service environment.
 
 ## Verification
 
-- `python -m unittest -v`: 29 tests passed, including MyAcuRite login/session
+- `python -m unittest -v`: 30 tests passed, including MyAcuRite login/session
   retry, schema validation, null readings, timestamp/unit normalization,
   privacy-safe failures, idempotent snapshots, sub-daily dashboard filtering,
   form login sessions, OIDC claims, refresh failure recording, and concurrency.

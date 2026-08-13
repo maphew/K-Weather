@@ -191,6 +191,24 @@ class DashboardTest(unittest.TestCase):
         self.assertIn(b"Aug 13, 9:45 AM", response.data)
         self.assertNotIn(b"Data may be stale", response.data)
 
+    def test_stale_condition_explains_threshold_in_tooltip(self) -> None:
+        database = connect_database(self.database_path)
+        ingest_myacurite_snapshot(
+            database,
+            station_name="AcuRite Iris",
+            observed_at="2020-01-01T00:00:00+00:00",
+            readings=(SensorReading("temperature", -20, "°C"),),
+        )
+        database.close()
+
+        response = self.client().get("/", headers=self.auth_header())
+
+        self.assertIn(b"Data may be stale", response.data)
+        self.assertIn(
+            b"MyAcuRite has not reported a new reading for more than 12 hours.",
+            response.data,
+        )
+
     def test_dashboard_requires_authentication(self) -> None:
         response = self.client().get("/")
 
