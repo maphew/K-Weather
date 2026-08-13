@@ -53,5 +53,8 @@ current year (plus the previous year during January), safely upserts repeated
 observations, and wakes the Sprite through its public URL. The dashboard itself
 remains protected by application authentication.
 
+Production runs at <https://k-weather-m4xy.sprites.app>. Authorized household
+members need the separately shared dashboard username and password.
+
 Read `current.md` first when resuming development. See `AGENTS.md` for source
 details and project conventions, and `ADR/` for durable decision history.

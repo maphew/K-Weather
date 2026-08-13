@@ -34,10 +34,22 @@ Data gathering must run every six hours.
   the latest year of high, low, and mean temperature.
 - Added dashboard tests for empty, single-series, multiple-metric, and precise
   location privacy states. See ADR 0004 for the rendering decision.
+- Added secret-configured HTTP Basic authentication for the dashboard and
+  security headers that prevent caching, framing, and referrer leakage.
+- Added an incremental single-writer refresh endpoint. It downloads only the
+  current ECCC year (plus the previous year in January), records batch status,
+  rejects overlapping requests, and shows only a generic failure notice.
+- Added GitHub Actions scheduling at minute 17 every six hours. It authenticates
+  with a short-lived GitHub OIDC token bound to this repository and workflow;
+  no long-lived scheduler secret exists. See ADR 0005.
+- Deployed production to Sprites.dev with one Gunicorn worker, persistent
+  SQLite storage, a restart-on-wake Sprite Service, and app authentication.
+- Created Sprite checkpoint `v1` after successful deployment.
 
 Generated CSV files under `yukon_weather/` are local verification output and
 are intentionally ignored by Git. The private SQLite database is ignored too.
-There is no authentication, scheduler, or deployment configuration yet.
+Production credentials live only in the ignored local `.env` and Sprite service
+environment. Never copy their values into this file, Git, logs, or issues.
 
 The sanitized history is published in the public `maphew/K-Weather` GitHub
 repository. The imported private handoff history was intentionally excluded.
@@ -45,20 +57,36 @@ repository. The imported private handoff history was intentionally excluded.
 
 ## Next job
 
-Add the protected operational boundary:
+The requested ECCC dashboard and six-hour refresh are operational. The next
+separate product job requires household input:
 
-1. Require application-level authentication configured only through secrets.
-2. Add an authenticated, idempotent refresh endpoint or command that updates
-   ECCC data without re-fetching every historical year.
-3. Record refresh freshness and failures visibly without exposing internals.
-4. Test unauthorized access, refresh retries, and concurrent requests.
+1. Obtain the manually exported rolling 31-day MyAcuRite CSV outside Git.
+2. Inspect its real schema without exposing account/device identifiers.
+3. Add a private AcuRite importer with synthetic public fixtures.
+4. Add household-vs-ECCC dashboard series and calibration comparisons.
 
-After this boundary is tested, deploy to Sprites.dev and configure the external
-six-hour trigger.
+Do not guess the MyAcuRite CSV schema or add an account scraper before receiving
+the real private export.
+
+## Production
+
+- URL: `https://k-weather-m4xy.sprites.app`
+- Sprite: organization `matt-wilkie`, Sprite `k-weather`
+- Service: `dashboard`, one Gunicorn worker on port 8080
+- Database: `/home/sprite/k-weather/yukon_weather/k-weather.sqlite3`
+- Schedule: `.github/workflows/refresh.yml`, `17 */6 * * *`
+- Checkpoint: `v1`
+
+For a code update: push `main`, run `sprite exec -- bash -lc 'cd
+/home/sprite/k-weather && git pull --ff-only && .venv/bin/pip install -r
+requirements.txt'`, then restart the `dashboard` Sprite Service. Preserve the
+database and service environment.
 
 ## Verification
 
-- `python -m unittest -v`: 8 tests passed.
+- `python -m unittest -v`: 16 tests passed, including OIDC claims,
+  unauthorized access, idempotent refresh, failure recording, and concurrency.
+- Ruff lint and formatting checks passed for all tracked Python.
 - Live ECCC import: 2,401 daily rows became 14,066 normalized observations
   spanning 2020-01-01 through 2026-08-11.
 - Reimporting all 2,401 rows left the observation count at 14,066, confirming
@@ -66,6 +94,13 @@ six-hour trigger.
 - Browser exercise on real data: default view rendered three charts; submitting
   a mean-temperature/date filter produced one chart and preserved all filters
   in the URL. The inspected desktop screenshot had no clipping or layout defects.
+- Production returned `401` without dashboard credentials and `200` with them;
+  a random refresh bearer token returned `401`.
+- GitHub Actions workflow run `31664609923` obtained an OIDC token and completed
+  the protected production refresh successfully.
+- Production SQLite remained at 14,066 unique observations and recorded one
+  completed three-station refresh. The authenticated 390 px browser check
+  rendered three charts with no horizontal overflow.
 
 ## Time-sensitive manual action
 
