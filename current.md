@@ -137,7 +137,7 @@ history accumulates, consider household-vs-ECCC calibration comparisons.
 - Service: `dashboard`, one Gunicorn worker on port 8080
 - Database: `/home/sprite/k-weather/yukon_weather/k-weather.sqlite3`
 - Schedule: `.github/workflows/refresh.yml`, `17 */6 * * *`
-- Checkpoint: `v10` (`encrypted Google Drive backup operational`)
+- Checkpoint: `v11` (`five-minute capture and encrypted backup operational`)
 
 For a code update: push `main`, run `sprite exec -- bash -lc 'cd
 /home/sprite/k-weather && git pull --ff-only && .venv/bin/pip install -r
@@ -201,6 +201,10 @@ database and service environment.
   4,016 normalized observations across three devices from nine five-minute
   files, spanning 2026-08-11 through 2026-08-13. The application did not persist
   any private URL or upstream identifier.
+- Production workflow run `31752814264` completed refresh and verified backup in
+  58 seconds. It increased retained five-minute observations from 98,095 to
+  99,558, reached 2026-08-13T23:10:00Z, left all household external IDs null and
+  all ingestion runs successful, and created the fourth encrypted snapshot.
 
 ## Session rule
 
