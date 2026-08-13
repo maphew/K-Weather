@@ -118,10 +118,11 @@ def create_app(
         error = None
         if request.method == "POST":
             valid_username = compare_digest(
-                request.form.get("username", ""), app.config["AUTH_USERNAME"]
+                request.form.get("username", "").strip().casefold(),
+                app.config["AUTH_USERNAME"].casefold(),
             )
             valid_password = compare_digest(
-                request.form.get("password", ""), app.config["AUTH_PASSWORD"]
+                request.form.get("password", "").strip(), app.config["AUTH_PASSWORD"]
             )
             if valid_username and valid_password:
                 session.clear()

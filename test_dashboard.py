@@ -149,6 +149,21 @@ class DashboardTest(unittest.TestCase):
         self.assertEqual(dashboard.status_code, 200)
         self.assertIn(b"K-Weather", dashboard.data)
 
+    def test_login_tolerates_mobile_capitalization_and_copy_whitespace(self) -> None:
+        client = self.client()
+
+        response = client.post(
+            "/login",
+            data={
+                "username": " Family ",
+                "password": " correct horse battery staple\n",
+            },
+            base_url="https://localhost",
+        )
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.headers["Location"], "/")
+
     def test_refresh_requires_bearer_token(self) -> None:
         response = self.client().post("/refresh")
 
