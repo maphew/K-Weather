@@ -76,6 +76,10 @@ Data gathering must run every six hours.
   compass direction, and retains the historical filters below. See ADR 0007.
 - Expanded six-hour ingestion from the Iris alone to every linked household
   sensor while continuing to discard upstream IDs and exact location fields.
+- Deployed and verified three production current-condition cards with 17 total
+  readings. Desktop and 390 px browser checks found no clipped values or
+  horizontal overflow. The dashboard flags the Iris as stale because MyAcuRite
+  reports an older check-in than the two current auxiliary sensors.
 
 Generated CSV files under `yukon_weather/` are local verification output and
 are intentionally ignored by Git. The private SQLite database is ignored too.
@@ -87,14 +91,11 @@ repository. The imported private handoff history was intentionally excluded.
 
 ## Next job
 
-Deploy and visually verify the new current-conditions view, then preserve the
-history that predates automated capture:
+Preserve the history that predates automated capture:
 
-1. Deploy, refresh, and verify the Iris and both auxiliary sensor cards on
-   desktop and mobile.
-2. Export and privately attach the current rolling 31-day MyAcuRite CSV before
+1. Export and privately attach the current rolling 31-day MyAcuRite CSV before
    older readings expire. Inspect its real schema, then add the importer.
-3. After enough snapshots accumulate, consider household-vs-ECCC calibration
+2. After enough snapshots accumulate, consider household-vs-ECCC calibration
    comparisons. Direct Acuparse capture remains the fallback for finer detail.
 
 ## Production
@@ -104,7 +105,7 @@ history that predates automated capture:
 - Service: `dashboard`, one Gunicorn worker on port 8080
 - Database: `/home/sprite/k-weather/yukon_weather/k-weather.sqlite3`
 - Schedule: `.github/workflows/refresh.yml`, `17 */6 * * *`
-- Checkpoint: `v5`
+- Checkpoint: `v6`
 
 For a code update: push `main`, run `sprite exec -- bash -lc 'cd
 /home/sprite/k-weather && git pull --ff-only && .venv/bin/pip install -r
@@ -113,7 +114,7 @@ database and service environment.
 
 ## Verification
 
-- `python -m unittest -v`: 28 tests passed, including MyAcuRite login/session
+- `python -m unittest -v`: 29 tests passed, including MyAcuRite login/session
   retry, schema validation, null readings, timestamp/unit normalization,
   privacy-safe failures, idempotent snapshots, sub-daily dashboard filtering,
   form login sessions, OIDC claims, refresh failure recording, and concurrency.
@@ -148,6 +149,11 @@ database and service environment.
   household observations with no external ID or coordinates; an authenticated
   dashboard request rendered the AcuRite temperature chart and safe Riverdale
   station label.
+- Workflow run `31724056172` captured all three household devices. Production
+  now exposes nine Iris readings plus four readings from each auxiliary sensor.
+  Automated DOM checks confirmed three cards, 17 values, no coordinates or
+  account-linked station metadata, and no horizontal overflow at desktop or
+  390 px widths. Inspected screenshots confirmed all values are readable.
 
 ## Time-sensitive manual action
 
