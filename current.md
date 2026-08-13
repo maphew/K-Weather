@@ -92,6 +92,9 @@ Data gathering must run every six hours.
 - Combined default ECCC and AcuRite temperatures into one comparison chart;
   previously AcuRite was technically present but isolated in a fourth graph
   below the ECCC charts and therefore easy to miss.
+- Production verification confirmed the single default comparison chart has
+  three ECCC series and three AcuRite series, with sparse household readings
+  shown as distinct markers and source names visible in the legend.
 
 Generated CSV files under `yukon_weather/` are local verification output and
 are intentionally ignored by Git. The private SQLite database is ignored too.
