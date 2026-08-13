@@ -9,7 +9,7 @@ from myacurite import (
     MyAcuriteConfig,
     MyAcuriteError,
     SensorReading,
-    parse_snapshot,
+    parse_snapshots,
 )
 from weather_store import connect_database, ingest_myacurite_snapshot
 
@@ -50,6 +50,8 @@ def synthetic_dashboard():
         "longitude": -123.456,
         "devices": [
             {
+                "name": "AcuRite Iris",
+                "model_code": "5in1WS",
                 "last_check_in_at": "2026-08-13T06:15:00-07:00",
                 "sensors": [
                     {
@@ -69,15 +71,36 @@ def synthetic_dashboard():
                     },
                 ],
                 "wired_sensors": [],
-            }
+            },
+            {
+                "name": "Greenhouse sensor",
+                "model_code": "2in1T",
+                "last_check_in_at": "2026-08-13T06:14:00-07:00",
+                "sensors": [
+                    {
+                        "sensor_name": "Temperature",
+                        "last_reading_value": 49.1,
+                        "chart_unit": "F",
+                    },
+                    {
+                        "sensor_name": "Humidity",
+                        "last_reading_value": 86,
+                        "chart_unit": "%RH",
+                    },
+                ],
+            },
         ],
     }
 
 
 class MyAcuriteParsingTest(unittest.TestCase):
     def test_parses_timestamp_units_and_null_readings(self):
-        snapshot = parse_snapshot(synthetic_dashboard())
+        snapshots = parse_snapshots(synthetic_dashboard())
+        snapshot = snapshots[0]
 
+        self.assertEqual(len(snapshots), 2)
+        self.assertEqual(snapshot.station_key, "home")
+        self.assertEqual(snapshot.station_name, "AcuRite Iris")
         self.assertEqual(snapshot.observed_at, "2026-08-13T13:15:00+00:00")
         self.assertEqual(
             snapshot.readings,
@@ -86,11 +109,14 @@ class MyAcuriteParsingTest(unittest.TestCase):
                 SensorReading("humidity", 41.0, "%"),
             ),
         )
+        self.assertEqual(snapshots[1].station_key, "sensor_1")
+        self.assertEqual(snapshots[1].station_name, "Greenhouse sensor")
+        self.assertEqual(snapshots[1].observed_at, "2026-08-13T13:14:00+00:00")
 
     def test_rejects_schema_change_without_including_payload(self):
         private_value = "private-device-value"
         with self.assertRaises(MyAcuriteError) as raised:
-            parse_snapshot({"unexpected": private_value})
+            parse_snapshots({"unexpected": private_value})
 
         self.assertNotIn(private_value, str(raised.exception))
 
@@ -114,9 +140,9 @@ class MyAcuriteClientTest(unittest.TestCase):
             ],
         )
 
-        snapshot = MyAcuriteClient(self.config, session=session).fetch_snapshot()
+        snapshots = MyAcuriteClient(self.config, session=session).fetch_snapshots()
 
-        self.assertEqual(snapshot.readings[0].metric, "temperature")
+        self.assertEqual(snapshots[0].readings[0].metric, "temperature")
         self.assertEqual(session.post_calls[0][1]["timeout"], 15)
         self.assertEqual(
             session.get_calls[0][1]["headers"], {"x-one-vue-token": "synthetic-token"}
@@ -133,7 +159,7 @@ class MyAcuriteClientTest(unittest.TestCase):
             ],
         )
 
-        MyAcuriteClient(self.config, session=session).fetch_snapshot()
+        MyAcuriteClient(self.config, session=session).fetch_snapshots()
 
         self.assertEqual(len(session.post_calls), 2)
         self.assertEqual(len(session.get_calls), 3)
@@ -142,7 +168,7 @@ class MyAcuriteClientTest(unittest.TestCase):
         session = FakeSession([FakeResponse(status_code=401)], [])
 
         with self.assertRaisesRegex(MyAcuriteError, "sign-in failed") as raised:
-            MyAcuriteClient(self.config, session=session).fetch_snapshot()
+            MyAcuriteClient(self.config, session=session).fetch_snapshots()
 
         message = str(raised.exception)
         self.assertNotIn(self.config.email, message)
@@ -154,7 +180,7 @@ class MyAcuriteClientTest(unittest.TestCase):
         )
 
         with self.assertRaisesRegex(MyAcuriteError, "exactly one hub"):
-            MyAcuriteClient(self.config, session=session).fetch_snapshot()
+            MyAcuriteClient(self.config, session=session).fetch_snapshots()
 
 
 class MyAcuriteStoreTest(unittest.TestCase):

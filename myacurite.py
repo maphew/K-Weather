@@ -38,6 +38,8 @@ class SensorReading:
 
 @dataclass(frozen=True)
 class MyAcuriteSnapshot:
+    station_key: str
+    station_name: str
     observed_at: str
     readings: tuple[SensorReading, ...]
 
@@ -82,22 +84,12 @@ def normalize_timestamp(value: Any, timezone_name: Any = None) -> str:
     return parsed.astimezone(timezone.utc).isoformat(timespec="seconds")
 
 
-def parse_snapshot(payload: Any) -> MyAcuriteSnapshot:
+def parse_readings(device: Any) -> tuple[SensorReading, ...]:
     try:
-        devices = payload["devices"]
-        device = next(
-            (item for item in devices if item.get("model_code") == "5in1WS"),
-            devices[0] if len(devices) == 1 else None,
-        )
-        if device is None:
-            raise KeyError
-        observed_at = normalize_timestamp(
-            device["last_check_in_at"], payload.get("timezone")
-        )
         sensors = tuple(device.get("sensors") or ()) + tuple(
             device.get("wired_sensors") or ()
         )
-    except (KeyError, IndexError, TypeError):
+    except (AttributeError, TypeError):
         raise MyAcuriteError(
             "MyAcuRite returned an unexpected dashboard response"
         ) from None
@@ -120,7 +112,55 @@ def parse_snapshot(payload: Any) -> MyAcuriteSnapshot:
             ) from None
     if not readings:
         raise MyAcuriteError("MyAcuRite returned no usable sensor readings")
-    return MyAcuriteSnapshot(observed_at=observed_at, readings=tuple(readings.values()))
+    return tuple(readings.values())
+
+
+def parse_snapshots(payload: Any) -> tuple[MyAcuriteSnapshot, ...]:
+    try:
+        devices = payload["devices"]
+        timezone_name = payload.get("timezone")
+        if not isinstance(devices, list) or not devices:
+            raise TypeError
+        iris_count = sum(device.get("model_code") == "5in1WS" for device in devices)
+        if iris_count != 1:
+            raise TypeError
+    except (AttributeError, KeyError, TypeError):
+        raise MyAcuriteError(
+            "MyAcuRite returned an unexpected dashboard response"
+        ) from None
+
+    snapshots = []
+    auxiliary_index = 0
+    for device in devices:
+        is_iris = device.get("model_code") == "5in1WS"
+        if is_iris:
+            station_key = "home"
+            fallback_name = "AcuRite Iris"
+        else:
+            auxiliary_index += 1
+            station_key = f"sensor_{auxiliary_index}"
+            fallback_name = f"Household sensor {auxiliary_index}"
+        name = device.get("name")
+        station_name = (
+            name.strip() if isinstance(name, str) and name.strip() else fallback_name
+        )
+        try:
+            observed_at = normalize_timestamp(
+                device["last_check_in_at"], device.get("timezone") or timezone_name
+            )
+        except (AttributeError, KeyError, TypeError):
+            raise MyAcuriteError(
+                "MyAcuRite returned an unexpected dashboard response"
+            ) from None
+        snapshots.append(
+            MyAcuriteSnapshot(
+                station_key=station_key,
+                station_name=station_name,
+                observed_at=observed_at,
+                readings=parse_readings(device),
+            )
+        )
+    return tuple(snapshots)
 
 
 class MyAcuriteClient:
@@ -188,12 +228,12 @@ class MyAcuriteClient:
         except (requests.RequestException, ValueError, KeyError, TypeError):
             raise MyAcuriteError("MyAcuRite hub discovery failed") from None
 
-    def fetch_snapshot(self) -> MyAcuriteSnapshot:
+    def fetch_snapshots(self) -> tuple[MyAcuriteSnapshot, ...]:
         if not self._hub_id:
             self._discover_hub_id()
         response = self._authenticated_get(f"dashboard/hubs/{self._hub_id}")
         try:
             response.raise_for_status()
-            return parse_snapshot(response.json())
+            return parse_snapshots(response.json())
         except (requests.RequestException, ValueError):
             raise MyAcuriteError("MyAcuRite dashboard request failed") from None

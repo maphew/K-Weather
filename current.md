@@ -70,6 +70,12 @@ Data gathering must run every six hours.
   protected production refresh, and verified nine recent AcuRite observations
   and the authenticated household dashboard without exposing coordinates.
 - Created Sprite checkpoint `v5` after production verification.
+- Added an at-a-glance current-conditions section matching MyAcuRite's
+  instrument-generated statistics without copying its design. It covers all
+  Iris readings and both linked auxiliary sensors, formats wind bearing as a
+  compass direction, and retains the historical filters below. See ADR 0007.
+- Expanded six-hour ingestion from the Iris alone to every linked household
+  sensor while continuing to discard upstream IDs and exact location fields.
 
 Generated CSV files under `yukon_weather/` are local verification output and
 are intentionally ignored by Git. The private SQLite database is ignored too.
@@ -81,12 +87,14 @@ repository. The imported private handoff history was intentionally excluded.
 
 ## Next job
 
-The AcuRite integration is operational. The immediate next job is preserving
-the history that predates automated capture:
+Deploy and visually verify the new current-conditions view, then preserve the
+history that predates automated capture:
 
-1. Export and privately attach the current rolling 31-day MyAcuRite CSV before
+1. Deploy, refresh, and verify the Iris and both auxiliary sensor cards on
+   desktop and mobile.
+2. Export and privately attach the current rolling 31-day MyAcuRite CSV before
    older readings expire. Inspect its real schema, then add the importer.
-2. After enough snapshots accumulate, consider household-vs-ECCC calibration
+3. After enough snapshots accumulate, consider household-vs-ECCC calibration
    comparisons. Direct Acuparse capture remains the fallback for finer detail.
 
 ## Production

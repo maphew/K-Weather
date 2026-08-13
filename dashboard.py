@@ -6,6 +6,7 @@ import sqlite3
 from collections import defaultdict
 from dataclasses import dataclass
 from datetime import date, datetime, time, timedelta, timezone
+from zoneinfo import ZoneInfo
 
 METRIC_LABELS = {
     "maximum_temperature": "Daily high",
@@ -30,6 +31,7 @@ METRIC_LABELS = {
     "wind_chill": "Wind chill",
     "dew_point": "Dew point",
     "light_intensity": "Light intensity",
+    "feels_like": "Feels like",
 }
 
 DEFAULT_METRICS = (
@@ -87,6 +89,131 @@ class DashboardOptions:
 class RefreshStatus:
     completed_at: str | None
     failed_at: str | None
+
+
+@dataclass(frozen=True)
+class CurrentReading:
+    metric: str
+    label: str
+    display_value: str
+
+
+@dataclass(frozen=True)
+class CurrentStation:
+    key: str
+    name: str
+    updated_at: str
+    readings: tuple[CurrentReading, ...]
+
+
+CURRENT_METRIC_ORDER = {
+    metric: index
+    for index, metric in enumerate(
+        (
+            "temperature",
+            "feels_like",
+            "humidity",
+            "dew_point",
+            "pressure",
+            "wind_speed",
+            "wind_speed_average",
+            "wind_direction",
+            "rainfall",
+        )
+    )
+}
+
+
+def display_number(value: float) -> str:
+    return f"{value:.1f}".rstrip("0").rstrip(".")
+
+
+def compass_direction(value: float) -> str:
+    directions = (
+        "N",
+        "NNE",
+        "NE",
+        "ENE",
+        "E",
+        "ESE",
+        "SE",
+        "SSE",
+        "S",
+        "SSW",
+        "SW",
+        "WSW",
+        "W",
+        "WNW",
+        "NW",
+        "NNW",
+    )
+    return directions[round((value % 360) / 22.5) % 16]
+
+
+def current_value(metric: str, value: float, unit: str) -> str:
+    if metric == "wind_direction":
+        return f"{compass_direction(value)} · {display_number(value)}°"
+    display_unit = "%" if unit == "%RH" else unit
+    display_value = (
+        f"{value:.2f}".rstrip("0").rstrip(".")
+        if metric == "rainfall"
+        else display_number(value)
+    )
+    return f"{display_value} {display_unit}".strip()
+
+
+def local_observation_time(value: str) -> str:
+    parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    return parsed.astimezone(ZoneInfo("America/Whitehorse")).strftime(
+        "%b %-d, %-I:%M %p"
+    )
+
+
+def load_current_conditions(
+    connection: sqlite3.Connection,
+) -> tuple[CurrentStation, ...]:
+    rows = connection.execute(
+        """
+        SELECT s.station_key, s.name, o.observed_at, o.metric, o.value, o.unit
+        FROM stations AS s
+        JOIN observations AS o
+          ON o.source = s.source AND o.station_key = s.station_key
+        WHERE s.source = 'myacurite'
+          AND o.observed_at = (
+              SELECT max(latest.observed_at)
+              FROM observations AS latest
+              WHERE latest.source = o.source
+                AND latest.station_key = o.station_key
+          )
+        ORDER BY CASE s.station_key WHEN 'home' THEN 0 ELSE 1 END,
+                 s.station_key, o.metric
+        """
+    ).fetchall()
+    grouped: dict[tuple[str, str, str], list[CurrentReading]] = defaultdict(list)
+    for station_key, name, observed_at, metric, value, unit in rows:
+        grouped[(station_key, name, observed_at)].append(
+            CurrentReading(
+                metric=metric,
+                label=METRIC_LABELS.get(metric, metric.replace("_", " ").title()),
+                display_value=current_value(metric, value, unit),
+            )
+        )
+    return tuple(
+        CurrentStation(
+            key=station_key,
+            name=name,
+            updated_at=local_observation_time(observed_at),
+            readings=tuple(
+                sorted(
+                    readings,
+                    key=lambda reading: CURRENT_METRIC_ORDER.get(reading.metric, 99),
+                )
+            ),
+        )
+        for (station_key, name, observed_at), readings in grouped.items()
+    )
 
 
 def load_refresh_status(connection: sqlite3.Connection) -> RefreshStatus:

@@ -104,14 +104,17 @@ def refresh_weather(
     if config is None:
         return tuple(results)
     try:
-        snapshot = acurite_client_factory(config).fetch_snapshot()
-        results.append(
-            ingest_myacurite_snapshot(
-                connection,
-                observed_at=snapshot.observed_at,
-                readings=snapshot.readings,
+        snapshots = acurite_client_factory(config).fetch_snapshots()
+        for snapshot in snapshots:
+            results.append(
+                ingest_myacurite_snapshot(
+                    connection,
+                    station_key=snapshot.station_key,
+                    station_name=snapshot.station_name,
+                    observed_at=snapshot.observed_at,
+                    readings=snapshot.readings,
+                )
             )
-        )
     except Exception as error:
         with connection:
             connection.execute(

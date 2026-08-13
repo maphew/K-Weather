@@ -29,6 +29,36 @@
         <p>Run <code>uv run get_yukon_weather.py</code> to build the local weather history.</p>
       </section>
     {% else %}
+      {% if current_conditions %}
+        <section class="current-conditions" aria-labelledby="current-title">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">At home now</p>
+              <h2 id="current-title">Current conditions</h2>
+            </div>
+            <p>Updated from the AcuRite station every six hours</p>
+          </div>
+          <div class="station-grid">
+            {% for station in current_conditions %}
+              <article class="station-card station-card--{{ station.key }}">
+                <header>
+                  <h3>{{ station.name }}</h3>
+                  <span>{{ station.updated_at }}</span>
+                </header>
+                <dl class="reading-grid">
+                  {% for reading in station.readings %}
+                    <div class="reading reading--{{ reading.metric }}">
+                      <dt>{{ reading.label }}</dt>
+                      <dd>{{ reading.display_value }}</dd>
+                    </div>
+                  {% endfor %}
+                </dl>
+              </article>
+            {% endfor %}
+          </div>
+        </section>
+      {% endif %}
+
       <form class="filters" method="get" aria-label="Weather filters">
         <div class="filters__dates">
           <label>From <input type="date" name="start" min="{{ options.first_date }}" max="{{ options.last_date }}" value="{{ start }}"></label>
@@ -109,7 +139,7 @@
     {% endif %}
   </main>
 
-  <footer>Environment and Climate Change Canada · Neighbourhood-scale view</footer>
+  <footer>AcuRite and Environment and Climate Change Canada · Neighbourhood-scale view</footer>
   <form class="logout" method="post" action="{{ url_for('logout') }}"><button type="submit">Sign out</button></form>
 </body>
 </html>

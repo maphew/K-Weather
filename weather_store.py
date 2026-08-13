@@ -214,6 +214,8 @@ def ingest_eccc_daily(
 def ingest_myacurite_snapshot(
     connection: sqlite3.Connection,
     *,
+    station_key: str = "home",
+    station_name: str = "Riverdale household station",
     observed_at: str,
     readings: Iterable[Any],
 ) -> IngestionResult:
@@ -224,17 +226,18 @@ def ingest_myacurite_snapshot(
         connection.execute(
             """
             INSERT INTO stations (source, station_key, name)
-            VALUES ('myacurite', 'home', 'Riverdale household station')
+            VALUES ('myacurite', ?, ?)
             ON CONFLICT (source, station_key) DO UPDATE SET name = excluded.name
-            """
+            """,
+            (station_key, station_name),
         )
         run_id = connection.execute(
             """
             INSERT INTO ingestion_runs
                 (source, station_key, started_at, status, rows_received)
-            VALUES ('myacurite', 'home', ?, 'running', ?)
+            VALUES ('myacurite', ?, ?, 'running', ?)
             """,
-            (started_at, len(records)),
+            (station_key, started_at, len(records)),
         ).lastrowid
 
     try:
@@ -245,13 +248,14 @@ def ingest_myacurite_snapshot(
                     INSERT INTO observations
                         (source, station_key, observed_at, interval, metric,
                          value, unit, quality_flag, ingested_at)
-                    VALUES ('myacurite', 'home', ?, 'snapshot', ?, ?, ?, NULL, ?)
+                    VALUES ('myacurite', ?, ?, 'snapshot', ?, ?, ?, NULL, ?)
                     ON CONFLICT
                         (source, station_key, observed_at, interval, metric)
                     DO UPDATE SET value = excluded.value, unit = excluded.unit,
                                   ingested_at = excluded.ingested_at
                     """,
                     (
+                        station_key,
                         observed_at,
                         reading.metric,
                         reading.value,

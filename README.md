@@ -61,6 +61,11 @@ latest AcuRite Iris snapshot. The account ID and precise location returned by
 MyAcuRite are never stored. The household station appears as a neighbourhood-
 scale Riverdale source in the dashboard. See ADR 0006.
 
+The current-conditions section shows the latest instrument readings from the
+Iris and every linked auxiliary sensor, including temperature, humidity, dew
+point, pressure, wind, feels-like temperature, and rainfall when available.
+Historical filters and charts remain below it. See ADR 0007.
+
 Do not paste MyAcuRite credentials or account-linked IDs into chat, Git, logs,
 or issue trackers. The application privately discovers the account and hub IDs
 after login and retains them only in memory. Omitting both variables safely

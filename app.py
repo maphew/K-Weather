@@ -22,6 +22,7 @@ from dashboard import (
     DEFAULT_METRICS,
     default_start,
     load_charts,
+    load_current_conditions,
     load_options,
     load_refresh_status,
 )
@@ -152,8 +153,14 @@ def create_app(
         database = sqlite3.connect(f"file:{path.resolve()}?mode=ro", uri=True)
         try:
             options = load_options(database)
+            current_conditions = load_current_conditions(database)
             if not options.first_date or not options.last_date:
-                return render_template("dashboard.html", options=options, charts=())
+                return render_template(
+                    "dashboard.html",
+                    options=options,
+                    charts=(),
+                    current_conditions=current_conditions,
+                )
             start = valid_date(request.args.get("start"), default_start(options) or "")
             end = valid_date(request.args.get("end"), options.last_date)
             if start > end:
@@ -188,6 +195,7 @@ def create_app(
                 "dashboard.html",
                 options=options,
                 charts=charts,
+                current_conditions=current_conditions,
                 refresh_status=load_refresh_status(database),
                 start=start,
                 end=end,

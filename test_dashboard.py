@@ -149,6 +149,47 @@ class DashboardTest(unittest.TestCase):
         self.assertIn(b"62.5 \xc2\xb0F", response.data)
         self.assertIn(b"1 observations", response.data)
 
+    def test_current_conditions_show_all_household_sensors_and_wind_direction(
+        self,
+    ) -> None:
+        database = connect_database(self.database_path)
+        ingest_myacurite_snapshot(
+            database,
+            station_key="home",
+            station_name="AcuRite Iris",
+            observed_at="2026-08-13T16:45:00+00:00",
+            readings=(
+                SensorReading("temperature", 25.6, "°C"),
+                SensorReading("humidity", 44, "%RH"),
+                SensorReading("wind_direction", 112.5, ""),
+                SensorReading("rainfall", 0.25, "mm"),
+            ),
+        )
+        ingest_myacurite_snapshot(
+            database,
+            station_key="sensor_1",
+            station_name="Greenhouse sensor",
+            observed_at="2026-08-13T16:44:00+00:00",
+            readings=(
+                SensorReading("temperature", 9.5, "°C"),
+                SensorReading("humidity", 86, "%RH"),
+                SensorReading("dew_point", 7, "°C"),
+            ),
+        )
+        database.close()
+
+        response = self.client().get("/", headers=self.auth_header())
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(b"Current conditions", response.data)
+        self.assertIn(b"AcuRite Iris", response.data)
+        self.assertIn(b"Greenhouse sensor", response.data)
+        self.assertIn(b"25.6 \xc2\xb0C", response.data)
+        self.assertIn(b"ESE \xc2\xb7 112.5\xc2\xb0", response.data)
+        self.assertIn(b"0.25 mm", response.data)
+        self.assertIn(b"44 %", response.data)
+        self.assertIn(b"Aug 13, 9:45 AM", response.data)
+
     def test_dashboard_requires_authentication(self) -> None:
         response = self.client().get("/")
 

@@ -78,16 +78,18 @@ class RefreshTest(unittest.TestCase):
     @patch("refresh.refresh_eccc", return_value=())
     def test_configured_household_snapshot_runs_on_shared_refresh(self, _refresh_eccc):
         snapshot = MyAcuriteSnapshot(
-            "2026-08-13T13:15:00+00:00",
-            (SensorReading("temperature", 62.5, "°F"),),
+            station_key="home",
+            station_name="AcuRite Iris",
+            observed_at="2026-08-13T13:15:00+00:00",
+            readings=(SensorReading("temperature", 62.5, "°F"),),
         )
 
         class Client:
             def __init__(self, _config):
                 pass
 
-            def fetch_snapshot(self):
-                return snapshot
+            def fetch_snapshots(self):
+                return (snapshot,)
 
         environment = {
             "MYACURITE_EMAIL": "person@example.invalid",

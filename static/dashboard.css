@@ -60,10 +60,33 @@ h1 { margin: 0; font-family: Georgia, serif; font-size: clamp(3.4rem, 10vw, 6.8r
 
 main { padding: 2rem 0 4rem; }
 
+.current-conditions {
+  position: relative;
+  z-index: 2;
+  margin-top: -3.2rem;
+  padding: clamp(1.15rem, 3vw, 1.7rem);
+  border: 1px solid rgba(23, 52, 45, .1);
+  border-radius: 1rem;
+  background: rgba(255, 253, 248, .97);
+  box-shadow: 0 1.25rem 3rem rgba(34, 66, 55, .13);
+}
+.section-heading { display: flex; justify-content: space-between; align-items: end; gap: 1rem; margin-bottom: 1.2rem; }
+.section-heading > p { max-width: 22rem; margin: 0; color: var(--muted); text-align: right; font-size: .78rem; }
+.station-grid { display: grid; gap: 1rem; }
+.station-card { overflow: hidden; border: 1px solid var(--line); border-radius: .8rem; background: #fff; }
+.station-card header { display: flex; justify-content: space-between; align-items: baseline; gap: 1rem; padding: .85rem 1rem; color: #fff; background: var(--pine); }
+.station-card h3 { margin: 0; font-family: Georgia, serif; font-size: 1.25rem; font-weight: 500; }
+.station-card header span { color: #dce9e2; font-size: .68rem; white-space: nowrap; }
+.reading-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(8.5rem, 1fr)); margin: 0; }
+.reading { min-width: 0; padding: .9rem 1rem; border-right: 1px solid #edf0ed; border-bottom: 1px solid #edf0ed; }
+.reading dt { color: var(--muted); font-size: .7rem; font-weight: 700; text-transform: uppercase; letter-spacing: .07em; }
+.reading dd { margin: .25rem 0 0; font-family: Georgia, serif; font-size: clamp(1.25rem, 3vw, 1.8rem); white-space: nowrap; }
+.station-card--home { grid-column: 1 / -1; }
+
 .filters {
   display: grid;
   gap: 1.3rem;
-  margin-top: -3.2rem;
+  margin-top: 1.5rem;
   padding: 1.35rem;
   position: relative;
   z-index: 2;
@@ -126,6 +149,7 @@ footer { padding: 1.5rem 0 2.5rem; color: var(--muted); border-top: 1px solid va
 .login-error { padding: .6rem .7rem; border-radius: .4rem; color: #742a1f; background: #f9ddd7; font-size: .82rem; }
 
 @media (min-width: 760px) {
+  .station-grid { grid-template-columns: repeat(2, 1fr); }
   .filters { grid-template-columns: auto 1fr auto; align-items: end; }
   .filters__dates { grid-column: 1; }
   .filters fieldset:first-of-type { grid-column: 2; }
@@ -135,6 +159,8 @@ footer { padding: 1.5rem 0 2.5rem; color: var(--muted); border-top: 1px solid va
 
 @media (max-width: 560px) {
   .hero { padding-top: 3.5rem; }
+  .section-heading { display: block; }
+  .section-heading > p { margin-top: .45rem; text-align: left; }
   .chart-card__header { align-items: end; }
   .summary { justify-content: space-between; gap: .4rem; }
   .plot__labels { padding-left: 0; }
