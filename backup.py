@@ -113,6 +113,10 @@ def backup_database(config: BackupConfig) -> None:
         if not private_file.is_file() or private_file.stat().st_mode & 0o077:
             raise BackupError("backup secret files are missing or not private")
 
+    # Interrupted Sprite processes can leave a repository lock behind. Restic
+    # removes only locks it can prove are stale unless --remove-all is passed.
+    run_restic(config, "unlock")
+
     with tempfile.TemporaryDirectory(prefix="k-weather-backup-") as directory:
         workspace = Path(directory)
         snapshot = workspace / "k-weather.sqlite3"
@@ -136,6 +140,8 @@ def backup_database(config: BackupConfig) -> None:
             "k-weather-sprite",
             "--tag",
             "k-weather",
+            "--group-by",
+            "host,tags",
             "--keep-last",
             "14",
             "--keep-daily",

@@ -115,6 +115,11 @@ Data gathering must run every six hours.
   fetches the dashboard day plus the prior two days for all three sensors and
   idempotently upserts the normalized summaries. Account-linked summary paths
   exist only in process memory. See ADR 0011.
+- Recovered encrypted backups after an interrupted Restic operation left a
+  stale repository lock. Added automatic stale-lock cleanup and grouped
+  retention by host and tag so temporary snapshot paths do not preserve retry
+  duplicates. Pruned 36 duplicate snapshots, then checked and restored the
+  latest repository snapshot successfully.
 
 Generated CSV files under `yukon_weather/` are local verification output and
 are intentionally ignored by Git. The private SQLite database is ignored too.
@@ -205,6 +210,12 @@ database and service environment.
   58 seconds. It increased retained five-minute observations from 98,095 to
   99,558, reached 2026-08-13T23:10:00Z, left all household external IDs null and
   all ingestion runs successful, and created the fourth encrypted snapshot.
+- Production recovery on 2026-08-24 removed a stale Restic lock, applied the
+  intended retention policy across one host/tag group, reduced 61 snapshots to
+  25, and completed `restic check` with no errors. A restore of the latest
+  snapshot matched the live database integrity, observation count, and newest
+  timestamp. The focused backup tests and Ruff checks pass; the full 46-test
+  suite has one unrelated date-sensitive dashboard fixture failure.
 
 ## Session rule
 

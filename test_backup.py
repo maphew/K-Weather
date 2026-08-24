@@ -8,6 +8,7 @@ from unittest.mock import patch
 from backup import (
     BackupConfig,
     BackupError,
+    backup_database,
     create_sqlite_snapshot,
     database_fingerprint,
 )
@@ -50,6 +51,37 @@ class BackupTest(unittest.TestCase):
             self.assertRaisesRegex(BackupError, "incomplete"),
         ):
             BackupConfig.from_environment()
+
+    def test_backup_clears_stale_locks_and_groups_retention_without_temp_path(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            database = root / "live.sqlite3"
+            password = root / "restic-password"
+            rclone = root / "rclone.conf"
+            connect_database(database).close()
+            password.touch(mode=0o600)
+            rclone.touch(mode=0o600)
+            config = BackupConfig(database, "repository", password, rclone)
+            calls: list[tuple[str, ...]] = []
+
+            def fake_restic(
+                _config: BackupConfig, *arguments: str, cwd: Path | None = None
+            ) -> None:
+                calls.append(arguments)
+                if arguments[0] == "restore":
+                    target = Path(arguments[arguments.index("--target") + 1])
+                    target.mkdir(parents=True)
+                    create_sqlite_snapshot(database, target / "k-weather.sqlite3")
+
+            with patch("backup.run_restic", side_effect=fake_restic):
+                backup_database(config)
+
+            self.assertEqual(calls[0], ("unlock",))
+            forget = next(call for call in calls if call[0] == "forget")
+            group_by = forget.index("--group-by")
+            self.assertEqual(forget[group_by + 1], "host,tags")
 
 
 if __name__ == "__main__":
