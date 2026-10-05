@@ -13,21 +13,50 @@ jobs:
   refresh:
     runs-on: ubuntu-latest
     steps:
-      - name: Trigger protected refresh
-        env:
-          K_WEATHER_REFRESH_URL: https://k-weather-m4xy.sprites.app
+      - name: Get OIDC token
+        id: oidc
         run: |
           oidc_response=$(curl --fail-with-body --retry 3 --retry-all-errors \
             -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
             "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=k-weather-refresh")
           oidc_token=$(jq -er .value <<<"$oidc_response")
-          curl --fail-with-body --retry 3 --retry-all-errors \
+          echo "token=$oidc_token" >> $GITHUB_OUTPUT
+
+      - name: Wake up Sprite
+        env:
+          K_WEATHER_REFRESH_URL: https://k-weather-m4xy.sprites.app
+        run: |
+          echo "Waking up Sprite..."
+          for i in $(seq 1 15); do
+            http_code=$(curl --max-time 30 -s -o /dev/null -w "%{http_code}" "$K_WEATHER_REFRESH_URL/health" || echo "000")
+            if [[ "$http_code" == "200" ]]; then
+              echo "Sprite is awake (HTTP $http_code)"
+              exit 0
+            fi
+            echo "Sprite not ready (HTTP $http_code), waiting 10s (attempt $i/15)..."
+            sleep 10
+          done
+          echo "Sprite failed to wake up after 15 attempts"
+          exit 1
+
+      - name: Trigger refresh
+        env:
+          K_WEATHER_REFRESH_URL: https://k-weather-m4xy.sprites.app
+          OIDC_TOKEN: ${{ steps.oidc.outputs.token }}
+        run: |
+          curl --fail-with-body --retry 5 --retry-all-errors --retry-delay 10 \
             --max-time 300 \
             -X POST \
-            -H "Authorization: Bearer $oidc_token" \
+            -H "Authorization: Bearer $OIDC_TOKEN" \
             "$K_WEATHER_REFRESH_URL/refresh"
-          curl --fail-with-body --retry 3 --retry-all-errors \
+
+      - name: Trigger backup
+        env:
+          K_WEATHER_REFRESH_URL: https://k-weather-m4xy.sprites.app
+          OIDC_TOKEN: ${{ steps.oidc.outputs.token }}
+        run: |
+          curl --fail-with-body --retry 5 --retry-all-errors --retry-delay 10 \
             --max-time 300 \
             -X POST \
-            -H "Authorization: Bearer $oidc_token" \
+            -H "Authorization: Bearer $OIDC_TOKEN" \
             "$K_WEATHER_REFRESH_URL/backup"
