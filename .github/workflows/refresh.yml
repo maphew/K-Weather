@@ -12,6 +12,10 @@ permissions:
 jobs:
   refresh:
     runs-on: ubuntu-latest
+    env:
+      FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+      FLY_APP_NAME: k-weather-m4xy
+      K_WEATHER_REFRESH_URL: https://k-weather-m4xy.sprites.app
     steps:
       - name: Get OIDC token
         id: oidc
@@ -22,11 +26,39 @@ jobs:
           oidc_token=$(jq -er .value <<<"$oidc_response")
           echo "token=$oidc_token" >> $GITHUB_OUTPUT
 
-      - name: Wake up Sprite
-        env:
-          K_WEATHER_REFRESH_URL: https://k-weather-m4xy.sprites.app
+      - name: Start Fly.io machine
         run: |
-          echo "Waking up Sprite..."
+          # Get machine ID for the web process
+          machines=$(curl -s -H "Authorization: Bearer $FLY_API_TOKEN" \
+            "https://api.machines.dev/v1/apps/$FLY_APP_NAME/machines")
+          machine_id=$(echo "$machines" | jq -r '.[] | select(.config.guest.cpu_kind == "shared") | .id' | head -1)
+          if [[ -z "$machine_id" || "$machine_id" == "null" ]]; then
+            echo "Could not find machine ID"
+            exit 1
+          fi
+          echo "Starting machine $machine_id..."
+          curl -s -X POST -H "Authorization: Bearer $FLY_API_TOKEN" \
+            "https://api.machines.dev/v1/apps/$FLY_APP_NAME/machines/$machine_id/start" > /dev/null
+
+      - name: Wait for machine to start
+        run: |
+          machine_id=$(curl -s -H "Authorization: Bearer $FLY_API_TOKEN" \
+            "https://api.machines.dev/v1/apps/$FLY_APP_NAME/machines" | jq -r '.[] | select(.config.guest.cpu_kind == "shared") | .id' | head -1)
+          for i in $(seq 1 30); do
+            state=$(curl -s -H "Authorization: Bearer $FLY_API_TOKEN" \
+              "https://api.machines.dev/v1/apps/$FLY_APP_NAME/machines/$machine_id" | jq -r '.state')
+            if [[ "$state" == "started" ]]; then
+              echo "Machine is started"
+              exit 0
+            fi
+            echo "Machine state: $state, waiting 10s (attempt $i/30)..."
+            sleep 10
+          done
+          echo "Machine failed to start after 30 attempts"
+          exit 1
+
+      - name: Wait for HTTP endpoint
+        run: |
           for i in $(seq 1 30); do
             http_code=$(curl --max-time 30 -s -o /dev/null -w "%{http_code}" "$K_WEATHER_REFRESH_URL/health" || echo "000")
             if [[ "$http_code" == "200" ]]; then
@@ -41,7 +73,6 @@ jobs:
 
       - name: Trigger refresh
         env:
-          K_WEATHER_REFRESH_URL: https://k-weather-m4xy.sprites.app
           OIDC_TOKEN: ${{ steps.oidc.outputs.token }}
         run: |
           curl --fail-with-body --retry 5 --retry-all-errors --retry-delay 10 \
@@ -52,7 +83,6 @@ jobs:
 
       - name: Trigger backup
         env:
-          K_WEATHER_REFRESH_URL: https://k-weather-m4xy.sprites.app
           OIDC_TOKEN: ${{ steps.oidc.outputs.token }}
         run: |
           curl --fail-with-body --retry 5 --retry-all-errors --retry-delay 10 \
