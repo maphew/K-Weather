@@ -27,16 +27,16 @@ jobs:
           K_WEATHER_REFRESH_URL: https://k-weather-m4xy.sprites.app
         run: |
           echo "Waking up Sprite..."
-          for i in $(seq 1 15); do
+          for i in $(seq 1 30); do
             http_code=$(curl --max-time 30 -s -o /dev/null -w "%{http_code}" "$K_WEATHER_REFRESH_URL/health" || echo "000")
             if [[ "$http_code" == "200" ]]; then
               echo "Sprite is awake (HTTP $http_code)"
               exit 0
             fi
-            echo "Sprite not ready (HTTP $http_code), waiting 10s (attempt $i/15)..."
+            echo "Sprite not ready (HTTP $http_code), waiting 10s (attempt $i/30)..."
             sleep 10
           done
-          echo "Sprite failed to wake up after 15 attempts"
+          echo "Sprite failed to wake up after 30 attempts"
           exit 1
 
       - name: Trigger refresh
