@@ -183,7 +183,8 @@ never commit credentials, account-linked device/hub IDs, raw household weather
 exports, databases, or street-level location data. Public UI copy may identify
 the location as Riverdale, Whitehorse, but no more precisely. Application
 runtime secrets belong in local environment files or hosting secret stores,
-not obfuscated in source. GitHub developer credentials are not runtime secrets:
-keep remotes on SSH and store a fresh, rotated PAT in Swamp's local `default`
-vault under `GITHUB_PAT`. The refresh workflow continues to use repository-bound
-GitHub Actions OIDC; it must not consume this PAT.
+not obfuscated in source. GitHub developer credentials stay out of the repo
+entirely: keep remotes on SSH, and let `gh auth setup-git` supply any HTTPS
+credential rather than writing a PAT into `.git/config`. The refresh workflow
+uses repository-bound GitHub Actions OIDC only. No PAT is stored in Swamp or
+anywhere else, and none is needed.
