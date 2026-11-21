@@ -174,6 +174,10 @@ session should read. Update it whenever completed work, verification evidence,
 the immediate next job, or a material blocker changes. Keep it concise and
 current; durable architectural decisions and their rationale belong in `ADR/`.
 
+`AGENTS.md` is the single instruction source; `CLAUDE.md` is a symlink to it.
+Swamp is enrolled with `--tool codex` so its managed block remains in
+`AGENTS.md`. Keep upgrades targeted to that tool rather than duplicating rules.
+
 This repository is public. Follow `ADR/0003-public-code-private-operations.md`:
 never commit credentials, account-linked device/hub IDs, raw household weather
 exports, databases, or street-level location data. Public UI copy may identify
