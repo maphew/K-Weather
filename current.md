@@ -1,6 +1,6 @@
 # Current development state
 
-Last updated: 2026-08-13
+Last updated: 2026-10-06
 
 ## Outcome
 
@@ -214,8 +214,17 @@ database and service environment.
   intended retention policy across one host/tag group, reduced 61 snapshots to
   25, and completed `restic check` with no errors. A restore of the latest
   snapshot matched the live database integrity, observation count, and newest
-  timestamp. The focused backup tests and Ruff checks pass; the full 46-test
-  suite has one unrelated date-sensitive dashboard fixture failure.
+  timestamp. The focused backup tests pass; Ruff checks pass; the full
+  46-test suite has one unrelated date-sensitive dashboard fixture
+  failure.
+- Diagnosed the 2026-10-04..06 CI failure streak: the hibernated Sprite
+  stopped waking on request (HTTP 502 HTML error pages, curl exit 22), so the
+  refresh trigger failed; today's Fly.io Machines API wake workaround
+  (7fc07aa) was unworkable because the repo had no `FLY_API_TOKEN` secret
+  and the Sprites-managed app is not visible to the household Fly account
+  (404 app not found). Reverted 7fc07aa (3e360fe) to the credential-free
+  /health wake poll. Workflow run 37395716364 then completed refresh and
+  backup successfully in 4m41s; the Sprite currently answers /health 200.
 
 ## Session rule
 
